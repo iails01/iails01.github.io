@@ -7,7 +7,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
   <meta name="robots" content="noindex">
   
-  <title>归档 - Iails&#39;s posts</title>
+  <title>配置中心与服务发现 Nacos - Iails&#39;s posts</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
   
   <meta name="keywords" content=>
@@ -50,25 +50,43 @@
     </ul>
   </nav>
 </header>
-<section class="archive">
-  <h1 class="article-title">Posts</h1>
-  <div class="archive-meta" style="color:#4f4f4f;font-size:16px;">
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">配置中心与服务发现 Nacos</h1>
   </div>
-  <ul class="post-archive">
-    
-      <li class="post-item">
-        <a class="post-title" href="/2019/10/07/HTTPS/">HTTPS</a>
-        <time class="post-date">2019-10-07</time>
-      </li>
-    
-      <li class="post-item">
-        <a class="post-title" href="/2019/09/12/InnoDB-%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E5%8A%A0%E9%94%81/">InnoDB 什么时候加锁</a>
-        <time class="post-date">2019-09-12</time>
-      </li>
-    
-  </ul>
-</section>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-06-20</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="配置中心"><a href="#配置中心" class="headerlink" title="配置中心"></a>配置中心</h3><h4 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h4><p>通过 namespace + group + dataId 唯一确定一个配置文件。</p>
+<ul>
+<li>namespace 用于隔离不同环境或租户的配置,默认为 public 命名空间。</li>
+<li>group 用于对配置文件进行逻辑分组,默认为 DEFAULT_GROUP。</li>
+<li>dataId 代表配置文件的名称,通常与应用程序的名称相关。</li>
+</ul>
+<p>Nacos 支持多种配置文件格式,包括 Properties、YAML 和 JSON 等。<br>配置文件的格式由 dataId 的后缀决定,例如 application.properties、application.yml、application.json 等。</p>
+<h4 id="基本的使用"><a href="#基本的使用" class="headerlink" title="基本的使用"></a>基本的使用</h4><p>以下这几个配置确定了application 的基础配置：</p>
+<ul>
+<li>spring.cloud.nacos.config.namespace</li>
+<li>spring.cloud.nacos.config.group</li>
+<li>spring.cloud.nacos.config.data-id：默认是<code>spring.application.name</code></li>
+<li>spring.cloud.nacos.config.file-extension</li>
+</ul>
+<p>还可以引入多个额外的配置文件，这些文件对基础配置进行覆盖和扩展：</p>
+<ul>
+<li>spring.cloud.nacos.config.extensionConfigs[0].group&#x3D;pc</li>
+<li>spring.cloud.nacos.config.extensionConfigs[0].data-id&#x3D;mq-idc.properties</li>
+<li>spring.cloud.nacos.config.extensionConfigs[0].refresh&#x3D;true</li>
+</ul>
 
+  </div>
+  <div class="post-footer">
+    
+
+    <a href="#top" class="top">返回顶部</a>
+  </div>
+  
+</article>
 <footer>
   &copy; 2024
   <span class="author">
@@ -80,7 +98,6 @@
     <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
   </span>
 </footer>
-
 
     </div>
   <!-- hexo injector body_end start -->
