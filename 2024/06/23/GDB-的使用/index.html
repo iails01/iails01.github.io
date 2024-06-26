@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>GDB 的使用 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">GDB 的使用</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-06-23</span> <br>
+  </div>
+  <div class="post-content">
+    <p>GDB 是C&#x2F;C++程序的调试器。</p>
+<p>编译时需要添加debug信息，添加 <code>-g</code>、<code>-g3</code>、<code>-ggdb</code>、 <code>-ggdb3</code> 参数。（带<code>3</code>的会携带宏的信息）</p>
+<h3 id="基本使用"><a href="#基本使用" class="headerlink" title="基本使用"></a>基本使用</h3><h4 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h4><p><code>gdb &lt;可执行文件&gt;</code>，会进入gdb 交互式环境。此时要调试的程序并没有执行，需要用<code>run</code>命令执行。</p>
+<p><code>gdb attach &lt;pid&gt;</code>，会直接attach到某个进程。也可以先用<code>gdb</code>启动交互式环境再<code>attach &lt;pid&gt;</code>。</p>
+<h4 id="断点"><a href="#断点" class="headerlink" title="断点"></a>断点</h4><ul>
+<li><code>info b</code>：查看当前设置了哪些断点。</li>
+<li><code>b &lt;断点位置&gt; &lt;断点条件&gt;</code><ul>
+<li><code>b &lt;函数名称&gt;</code>：在函数入口设置断点。</li>
+<li><code>b &lt;行号&gt;</code>：在当前文件的第n行设置断点。</li>
+<li><code>b &lt;文件名:行号&gt;</code></li>
+<li><code>b &lt;断点位置&gt; if x == 1</code>：条件断点。</li>
+</ul>
+</li>
+<li><code>delete &lt;断点序号&gt;...</code>：删除断点，序号通过<code>info</code>查看。</li>
+<li><code>enable/disable &lt;断点序号&gt;...</code>：启用或禁用断点。</li>
+</ul>
+<p>进入断点后:</p>
+<p><strong>调试流程控制</strong>：</p>
+<ul>
+<li><code>next/n</code>：下一行，遇到函数调用不会进入</li>
+<li><code>step/s</code>：下一步，遇到函数调用会进入</li>
+<li><code>finish</code>：完成当前函数，返回到调用当前函数的那行</li>
+<li><code>until/u</code>：继续执行到某一行停下。（如果目的点是函数外的话，会先到函数调用处停下）</li>
+<li><code>continue/c</code>：跳过此断点。</li>
+</ul>
+<p><strong>信息获取</strong>：</p>
+<ul>
+<li><code>print/p</code>: <code>p x</code>打印变量值, <code>p x=1</code>修改变量值</li>
+<li><code>backtrace/bt</code>:打印调用栈</li>
+<li><code>list/l</code>：查看当前行附近代码（<code>l .</code> 列出当前行附近10行；<code>l</code> 列出上次列出最后一行的后10行）</li>
+<li><code>info/i</code>: 有许多子命令<ul>
+<li><code>i args</code>：打印函数参数</li>
+<li><code>i thread</code>：查看线程，<code>*</code>代表当前线程</li>
+</ul>
+</li>
+</ul>
+<h3 id="参数"><a href="#参数" class="headerlink" title="参数"></a>参数</h3><p>可以通过 <code>set &lt;参数名称&gt; &lt;value&gt;</code> 设置参数。使用 <code>show &lt;参数名称&gt;</code>查看参数值。</p>
+<h4 id="多线程调试-scheduler-locking"><a href="#多线程调试-scheduler-locking" class="headerlink" title="多线程调试 scheduler-locking"></a>多线程调试 <code>scheduler-locking</code></h4><p>进入断点时这个值才能修改。</p>
+<ul>
+<li><code>off</code>：默认值, 在断点处继续往下运行时所有线程均可执行。（注意：当进入断点时所有线程都是不可执行的）</li>
+<li><code>on</code>：在断点处继续往下运行时仅当前被调试线程可执行。</li>
+<li><code>step</code>：用的较少，这里不展开。</li>
+</ul>
+<p>测试用代码(<code>gcc a.c -g -lpthread -o a.out</code>)：</p>
+<figure class="shiki c"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;stdio.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;pthread.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;unistd.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">static</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> a </span><span style="color: #C678DD">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">static</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> b </span><span style="color: #C678DD">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">void</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">*</span><span style="color: #61AFEF">runnable1</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #C678DD">*</span><span style="color: #E06C75; font-style: italic">args</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">while</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        a</span><span style="color: #C678DD">++</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">sleep</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">void</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">*</span><span style="color: #61AFEF">runnable2</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #C678DD">*</span><span style="color: #E06C75; font-style: italic">args</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">while</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        b</span><span style="color: #C678DD">++</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">sleep</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">main</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">void</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">pthread_t</span><span style="color: #ABB2BF"> t1, t2;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pthread_create</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">&amp;</span><span style="color: #ABB2BF">t1, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">, runnable1, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pthread_create</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">&amp;</span><span style="color: #ABB2BF">t2, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">, runnable2, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pthread_join</span><span style="color: #ABB2BF">(t1, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pthread_join</span><span style="color: #ABB2BF">(t2, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<p>测试过程: </p>
+<ul>
+<li>给<code>a++</code>那行添加断点，运行。</li>
+<li>进入断点，查看当前的参数确认是<code>off</code>。打印一下<code>a</code>和<code>b</code>的值，假设是<code>a = 0, b = 1</code>。然后继续运行，又进入断点。此时打印值可能会是<code>a = 1, b = 3</code>，说明继续执行时两个线程都在执行。</li>
+<li>然后再设置参数为<code>on</code>，继续运行。此时打印值会是<code>a = 2, b = 3</code>，说明这次只有a线程执行了。</li>
+</ul>
+
+  </div>
+  <div class="post-footer">
+    
+
+    <a href="#top" class="top">返回顶部</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2024
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- <a target="_blank" rel="noopener" href="https://beian.miit.gov.cn">赣ICP备18013550号-1</a> -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>
