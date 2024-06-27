@@ -138,6 +138,40 @@
 <li>进入断点，查看当前的参数确认是<code>off</code>。打印一下<code>a</code>和<code>b</code>的值，假设是<code>a = 0, b = 1</code>。然后继续运行，又进入断点。此时打印值可能会是<code>a = 1, b = 3</code>，说明继续执行时两个线程都在执行。</li>
 <li>然后再设置参数为<code>on</code>，继续运行。此时打印值会是<code>a = 2, b = 3</code>，说明这次只有a线程执行了。</li>
 </ul>
+<h4 id="多进程调试"><a href="#多进程调试" class="headerlink" title="多进程调试"></a>多进程调试</h4><ul>
+<li><code>detach-on-fork</code>: 默认<code>on</code>，当设置为<code>off</code>时，父子进程都会attach（即之前提到的进入断点）</li>
+<li><code>follow-fork-mode</code>: 当<code>detach-on-fork</code>为<code>on</code>时，执行进程fork时，由这个参数控制attach到<code>parent</code>还是<code>child</code>。默认是 <code>parent</code>。</li>
+<li><code>i inferiors</code>：查看进程</li>
+<li><code>inferior &lt;序号&gt;</code> 切换调试的进程</li>
+</ul>
+<p>测试用例子：</p>
+<figure class="shiki c"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;unistd.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;stdio.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;sys/syscall.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;stdlib.h&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">pid_t</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">gettid</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">syscall</span><span style="color: #ABB2BF">(__NR_gettid);</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">main</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">pid_t</span><span style="color: #ABB2BF"> pid;</span></span>
+<span class="line"><span style="color: #ABB2BF">    pid </span><span style="color: #C678DD">=</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">fork</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">if</span><span style="color: #ABB2BF"> (pid </span><span style="color: #C678DD">&lt;</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">exit</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    } </span><span style="color: #C678DD">else</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">if</span><span style="color: #ABB2BF"> (pid </span><span style="color: #C678DD">==</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">printf</span><span style="color: #ABB2BF">(</span><span style="color: #98C379">&quot;in child, pid: </span><span style="color: #D19A66">%d</span><span style="color: #98C379">, tid:</span><span style="color: #D19A66">%d</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #61AFEF">getpid</span><span style="color: #ABB2BF">(), </span><span style="color: #61AFEF">gettid</span><span style="color: #ABB2BF">());</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">exit</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    } </span><span style="color: #C678DD">else</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">printf</span><span style="color: #ABB2BF">(</span><span style="color: #98C379">&quot;in parent, pid: </span><span style="color: #D19A66">%d</span><span style="color: #98C379">, tid:</span><span style="color: #D19A66">%d</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #61AFEF">getpid</span><span style="color: #ABB2BF">(), </span><span style="color: #61AFEF">gettid</span><span style="color: #ABB2BF">());</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>首先在fork的后一行添加断点。运行一次，此时会先打印出<code>in child</code>。说明目前调试的是父进程，<code>c</code>继续运行。</li>
+<li>修改<code>follow-fork-mode</code>为child。运行一次，此时会先打印出<code>in parent</code>。说明目前调试的是子进程，<code>c</code>继续运行。</li>
+<li>再修改<code>detach-on-fork</code>为<code>off</code>，运行一次。此时会先进入parent，但是child已经创建了并且也是attach的。使用<code>i inferiors</code>查看当前attach的进程，此时会有两个进程。通过<code>inferior &lt;子进程序号&gt;</code> 可以切换到子进程。会发现子进程并不是停留在fork的下一行，而是在fork函数内部。</li>
+</ul>
 
   </div>
   <div class="post-footer">
