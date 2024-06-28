@@ -85,7 +85,7 @@
 </ul>
 <p><strong>信息获取</strong>：</p>
 <ul>
-<li><code>print/p</code>: <code>p x</code>打印变量值, <code>p x=1</code>修改变量值</li>
+<li><code>print/p</code>: <code>p x</code>打印变量值, <code>p x=1</code>修改变量值。变量可以是寄存器，使用<code>$寄存器名称</code>访问。</li>
 <li><code>backtrace/bt</code>:打印调用栈</li>
 <li><code>list/l</code>：查看当前行附近代码（<code>l .</code> 列出当前行附近10行；<code>l</code> 列出上次列出最后一行的后10行）</li>
 <li><code>info/i</code>: 有许多子命令<ul>
@@ -93,6 +93,35 @@
 <li><code>i thread</code>：查看线程，<code>*</code>代表当前线程</li>
 </ul>
 </li>
+</ul>
+<h4 id="打印内存信息"><a href="#打印内存信息" class="headerlink" title="打印内存信息"></a>打印内存信息</h4><p>命令格式: <code>x/&lt;num&gt;&lt;type&gt;&lt;size&gt; &lt;address&gt;</code>，含义是从起始地址<code>address</code>开始读<code>size</code>大小的内存，以<code>type</code>的类型打印值。重复<code>num</code>次，<code>num&gt;0</code>则每次地址递增，<code>num&lt;0</code>则每次地址递减。</p>
+<ul>
+<li><code>num</code>: 可以不指定，默认是1</li>
+<li><code>type</code>:<ul>
+<li><code>a</code>: address</li>
+<li><code>t</code>: binary</li>
+<li><code>x</code>: 十六进制格式, <code>z</code>: 十六进制，zero padded on the left.</li>
+<li><code>d</code>: 十进制格式, <code>ud</code>: unsigned 十进制</li>
+<li><code>f</code>: float</li>
+<li><code>c</code>: 字符</li>
+<li><code>s</code>: 字符串</li>
+<li><code>i</code>: instruction 汇编指令</li>
+</ul>
+</li>
+<li><code>size</code>: <ul>
+<li><code>b</code>: byte</li>
+<li><code>h</code>: halfword</li>
+<li><code>w</code>: word</li>
+<li><code>giant</code>: giant, 8 bytes</li>
+</ul>
+</li>
+</ul>
+<h4 id="汇编"><a href="#汇编" class="headerlink" title="汇编"></a>汇编</h4><p>打印汇编指令：<code>disas [/r|/m|/s] (&lt;函数位置&gt;|&lt;开始地址&gt;[, &lt;结束地址&gt;])</code>: </p>
+<ul>
+<li>位置格式是：<code>[文件名称::]&lt;函数名&gt;</code>，默认是当前文件。</li>
+<li><code>/r</code>代表会展示指令的16进制形式。</li>
+<li><code>/m</code>:代表会打印对应的源码，并且指令顺序是按源码行的顺序来的。(regardless of any optimization that is present。This modifier hasn’t proved useful in practice and is deprecated in favor of &#x2F;s.)</li>
+<li><code>/s</code>：代表会打印对应的源码，但是顺序是按指令本身的顺序来的。</li>
 </ul>
 <h3 id="参数"><a href="#参数" class="headerlink" title="参数"></a>参数</h3><p>可以通过 <code>set &lt;参数名称&gt; &lt;value&gt;</code> 设置参数。使用 <code>show &lt;参数名称&gt;</code>查看参数值。</p>
 <h4 id="多线程调试-scheduler-locking"><a href="#多线程调试-scheduler-locking" class="headerlink" title="多线程调试 scheduler-locking"></a>多线程调试 <code>scheduler-locking</code></h4><p>进入断点时这个值才能修改。</p>
