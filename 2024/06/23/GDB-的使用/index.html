@@ -60,8 +60,9 @@
   <div class="post-content">
     <p>GDB 是C&#x2F;C++程序的调试器。</p>
 <p>编译时需要添加debug信息，添加 <code>-g</code>、<code>-g3</code>、<code>-ggdb</code>、 <code>-ggdb3</code> 参数。（带<code>3</code>的会携带宏的信息）</p>
-<h3 id="基本使用"><a href="#基本使用" class="headerlink" title="基本使用"></a>基本使用</h3><h4 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h4><p><code>gdb &lt;可执行文件&gt;</code>，会进入gdb 交互式环境。此时要调试的程序并没有执行，需要用<code>run</code>命令执行。</p>
+<h3 id="基本使用"><a href="#基本使用" class="headerlink" title="基本使用"></a>基本使用</h3><h4 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h4><p><code>gdb &lt;可执行文件&gt;</code>，会进入gdb 交互式环境，可以加<code>-tui</code>参数进入tui环境。此时要调试的程序并没有执行，需要用<code>run</code>命令执行。</p>
 <p><code>gdb attach &lt;pid&gt;</code>，会直接attach到某个进程。也可以先用<code>gdb</code>启动交互式环境再<code>attach &lt;pid&gt;</code>。</p>
+<p>可以通过<code>tui enable/disable</code>进入或退出tui环境。</p>
 <h4 id="断点"><a href="#断点" class="headerlink" title="断点"></a>断点</h4><ul>
 <li><code>info b</code>：查看当前设置了哪些断点。</li>
 <li><code>b &lt;断点位置&gt; &lt;断点条件&gt;</code><ul>
