@@ -202,18 +202,35 @@
 <li>修改<code>follow-fork-mode</code>为child。运行一次，此时会先打印出<code>in parent</code>。说明目前调试的是子进程，<code>c</code>继续运行。</li>
 <li>再修改<code>detach-on-fork</code>为<code>off</code>，运行一次。此时会先进入parent，但是child已经创建了并且也是attach的。使用<code>i inferiors</code>查看当前attach的进程，此时会有两个进程。通过<code>inferior &lt;子进程序号&gt;</code> 可以切换到子进程。会发现子进程并不是停留在fork的下一行，而是在fork函数内部。</li>
 </ul>
-<h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><h4 id="ptrace系统调用"><a href="#ptrace系统调用" class="headerlink" title="ptrace系统调用"></a>ptrace系统调用</h4><p>函数签名：<code>long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)</code></p>
+<h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><p>首先需要了解一下ptrace系统调用。</p>
+<h4 id="ptrace系统调用"><a href="#ptrace系统调用" class="headerlink" title="ptrace系统调用"></a>ptrace系统调用</h4><p>函数签名：<code>long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)</code></p>
 <ul>
 <li>request：指定执行的动作<ul>
 <li>PTRACE_TRACEME: 让父进程追踪当前进程</li>
 <li>PTRACE_PEEKTEXT、PTRACE_PEEKDATA：读取进程内存</li>
 <li>PTRACE_POKETEXT、PTRACE_POKEDATA：修改进程内存</li>
+<li>PTRACE_CONT：让进程继续执行</li>
+<li>PTRACE_GETSIGINFO: 获取进程的signal信息</li>
+<li>PTRACE_SINGLESTEP: 单步执行一条汇编指令</li>
+<li>PTRACE_ATTACH: 当前进程动态地attach到目标进程</li>
 </ul>
 </li>
 <li>pid：被追踪的进程的进程号</li>
 <li>addr：这个参数一般是地址值，指示要读取或写入的进程内存地址。</li>
 <li>data：根据 request 的类型，这个参数可能用于提供数据，例如写入目标进程的内存，或者用于接收某些类型的输出。</li>
 </ul>
+<p>gdb 通过预先指定elf文件进行调试：</p>
+<ol>
+<li>gdb 运行被调试的程序时是通过fork生成子进程，然后子进程调用exec替换运行程序为被调试的程序。</li>
+<li>随后子进程会调用ptrace PTRACE_TRACEME 让gdb能够trace被调试程序。</li>
+</ol>
+<p>断点的原理：</p>
+<ul>
+<li>当设置一个断点时会将断点所在的汇编指令替换为<code>INT 3</code>指令，当被调试的进程执行到这个命令时，会收到中断信号<code>SIGTRAP</code>被暂停。而父进程先前执行的waitpid会返回，通过PTRACE_GETSIGINFO能够拿到是否是由<code>SIGTRAP</code>。如果是，说明进入了断点，此时响应用户的操作如获取被调试进程的相关信息。并且设置断点的同时gdb会将原指令保存起来，当继续运行时则将这个指令写回。读取指令需要用到PTRACE_PEEKDATA、而写入用到PTRACE_POKEDATA。</li>
+</ul>
+<h4 id="DWARF"><a href="#DWARF" class="headerlink" title="DWARF"></a>DWARF</h4><p>它是gcc编译时记录在elf文件中的用于调试的信息，调试器能利用这些数据找到指令与源码行的关系。</p>
+<p><code>dwarfdump elf文件</code> 可以查看elf文件中的dwarf信息。</p>
+<p>另外dwarf信息可以存放在独立的文件中，调试的时候引入，这样就不用增大elf文件的大小。</p>
 
   </div>
   <div class="post-footer">
