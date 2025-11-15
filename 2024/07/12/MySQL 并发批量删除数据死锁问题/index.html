@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>MySQL 并发批量删除数据死锁问题 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=并发,数据库,MySQL>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">MySQL 并发批量删除数据死锁问题</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-07-12</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="问题描述"><a href="#问题描述" class="headerlink" title="问题描述"></a>问题描述</h3><p>在生产中有一条批量删除的 SQL，当并发量达到一定量后经常出现死锁问题。<br>本文首先在本地还原场景，然后简化模型，在简化模型上测试和验证，从而分析 MySQL 的机制以及问题出现的根因。最终得到解决方案，并在原场景中得到验证。</p>
+<h3 id="场景还原"><a href="#场景还原" class="headerlink" title="场景还原"></a>场景还原</h3><p>DDL:</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">CREATE</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">TABLE</span><span style="color: #ABB2BF"> `</span><span style="color: #61AFEF">store_sku_stock</span><span style="color: #ABB2BF">` (</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`id`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">bigint</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">20</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">NOT NULL</span><span style="color: #ABB2BF"> AUTO_INCREMENT COMMENT </span><span style="color: #98C379">&#39;自增主键&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`parent_store_id`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">varchar</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">64</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">NOT NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;父门店编号&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`store_id`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">varchar</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">64</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">NOT NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;门店编号&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`sku`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">varchar</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">64</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">NOT NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;商品sku&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`avail_qty`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">11</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&#39;0&#39;</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;库存数量&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`source_qty`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">11</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&#39;0&#39;</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;DP下发库存&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`safety_qty`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">11</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&#39;0&#39;</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;安全库存&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`type`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">tinyint</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">4</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">NOT NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;1:当日库存，2.隔日库存&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`avail_date`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">datetime</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;有效时间&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`dp_uuid`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">varchar</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">64</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;uuid&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`create_date`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">datetime</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;创建时间&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`update_date`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">datetime</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;修改时间&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`create_user`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">varchar</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">16</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;创建人&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`update_user`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">varchar</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">16</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">NULL</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;修改人&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #98C379">`stock_status`</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">tinyint</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">4</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&#39;0&#39;</span><span style="color: #ABB2BF"> COMMENT </span><span style="color: #98C379">&#39;库存状态（0：售罄，1：库存紧张，2：库存充足）&#39;</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #C678DD">PRIMARY KEY</span><span style="color: #ABB2BF"> (</span><span style="color: #98C379">`id`</span><span style="color: #ABB2BF">),</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #C678DD">UNIQUE</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">KEY</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">`idx_store_id_sku`</span><span style="color: #ABB2BF"> (</span><span style="color: #98C379">`store_id`</span><span style="color: #ABB2BF">,</span><span style="color: #98C379">`sku`</span><span style="color: #ABB2BF">,</span><span style="color: #98C379">`type`</span><span style="color: #ABB2BF">,</span><span style="color: #98C379">`avail_date`</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">USING</span><span style="color: #ABB2BF"> BTREE,</span></span>
+<span class="line"><span style="color: #ABB2BF">  </span><span style="color: #C678DD">KEY</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">`idx_sku`</span><span style="color: #ABB2BF"> (</span><span style="color: #98C379">`sku`</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">USING</span><span style="color: #ABB2BF"> BTREE</span></span>
+<span class="line"><span style="color: #ABB2BF">) ENGINE</span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF">InnoDB AUTO_INCREMENT</span><span style="color: #56B6C2">=</span><span style="color: #D19A66">292839494</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">DEFAULT</span><span style="color: #ABB2BF"> CHARSET</span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF">utf8 COMMENT</span><span style="color: #56B6C2">=</span><span style="color: #98C379">&#39;门店商品库存&#39;</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">create</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">unique index</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">idx_store_id_sku</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">on</span><span style="color: #ABB2BF"> store_sku_stock(store_id, sku, </span><span style="color: #C678DD">type</span><span style="color: #ABB2BF">, avail_date) </span><span style="color: #C678DD">using</span><span style="color: #ABB2BF"> btree;</span></span></code></pre></div></div></figure>
+
+<p>还原现场用的测试数据：需要多条数据，预计10000条。然后随机选择两次批量删除的</p>
+<h3 id="验证方案"><a href="#验证方案" class="headerlink" title="验证方案"></a>验证方案</h3><h4 id="验证死锁原因"><a href="#验证死锁原因" class="headerlink" title="验证死锁原因"></a>验证死锁原因</h4><p>测试数据：只需要演示两条数据 sku a,b、门店都是1、日期同一天2020-01-01、类型相同1.</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> store_sku_stock </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF"> (</span></span>
+<span class="line"><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;a&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;2020-01-01 00:00:00&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;2020-01-01 00:00:00&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;2020-01-01 00:00:00&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span></span>
+<span class="line"><span style="color: #ABB2BF">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> store_sku_stock </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF"> (</span></span>
+<span class="line"><span style="color: #D19A66">2</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;b&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;2020-01-01 00:00:00&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;2020-01-01 00:00:00&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;2020-01-01 00:00:00&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #98C379">&#39;1&#39;</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">1</span></span>
+<span class="line"><span style="color: #ABB2BF">);</span></span></code></pre></div></div></figure>
+
+<h4 id="测试解决方案"><a href="#测试解决方案" class="headerlink" title="测试解决方案"></a>测试解决方案</h4><h4 id="如何应用到本次的场景中"><a href="#如何应用到本次的场景中" class="headerlink" title="如何应用到本次的场景中"></a>如何应用到本次的场景中</h4><h3 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h3>
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%B9%B6%E5%8F%91">并发</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E6%95%B0%E6%8D%AE%E5%BA%93">数据库</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=MySQL">MySQL</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

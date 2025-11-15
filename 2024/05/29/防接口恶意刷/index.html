@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>防接口恶意刷 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=安全,风控>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">防接口恶意刷</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-05-29</span> <br>
+  </div>
+  <div class="post-content">
+    <h4 id="方案一"><a href="#方案一" class="headerlink" title="方案一"></a>方案一</h4><p>思路：限制同一ip或用户的访问频率。</p>
+<p>实现：redis key1超时时间内记录访问次数，达到次数后添加key2标记为block状态。每次先查询是否block，然后在累积key1的值。</p>
+<p>缺点是时间段一个个独立的，跨时间段可能访问频次已经超过限制了。</p>
+<h4 id="方案二"><a href="#方案二" class="headerlink" title="方案二"></a>方案二</h4><p>思路：添加接口签名，防止对方构造请求。签名时需要包括时间戳防止重放。</p>
+<p>另一种取巧的方案，添加时间戳字段，不过时间戳的最后一位是根据前n位算出来的，这种情况下得到的新时间戳与原时间戳在时间上差距很小，对方可能难以判断出问题在这。这种情况需要前后端配合并且客户端需要混淆。</p>
+<h4 id="方案三"><a href="#方案三" class="headerlink" title="方案三"></a>方案三</h4><p>思路：自定义协议，内容都是加密后的，这样破解的成本会更高。</p>
+<h4 id="方案四"><a href="#方案四" class="headerlink" title="方案四"></a>方案四</h4><p>思路：让客户端做一些运算，运算的结果需要在服务端校验。这种情况可以让恶意狂刷接口的攻击方消耗更多的资源。</p>
+<p>不过同时也会影响一些正常用户的体验。例如验证码也算这类，例如服务端生成两个大质数，给这两个质数的积，由前端还原。</p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%AE%89%E5%85%A8">安全</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E9%A3%8E%E6%8E%A7">风控</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

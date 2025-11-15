@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>Groovy 脚本类加载卸载 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=JVM,Groovy>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">Groovy 脚本类加载卸载</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2023-03-31</span> <br>
+  </div>
+  <div class="post-content">
+    <p>大量加载类可能导致元空间OOM。首先回顾下类卸载需要满足的条件，要同时满足以下3个条件：</p>
+<ol>
+<li>该类的实例全部被回收</li>
+<li>加载该类的ClassLoader被回收</li>
+<li>该Class对象没在任何地方引用，也无法使用反射来访问。</li>
+</ol>
+<p>添加类加载日志，限制元空间大小，验证类是否卸载：<code>-XX:+TraceClassLoading -XX:+TraceClassUnloading -XX:MaxMetaspaceSize=30m</code></p>
+<p>下面这段代码能正常卸载BaseValue类：</p>
+<figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">main</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">String</span><span style="color: #E06C75">[] args) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> i </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> i </span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1000</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> i</span><span style="color: #ABB2BF">++</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">testLoader</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// </span></span>
+<span class="line"><span style="color: #ABB2BF">@</span><span style="color: #E5C07B">SneakyThrows</span></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">testLoader</span><span style="color: #E06C75">() {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">GroovyClassLoader</span><span style="color: #E06C75"> groovyClassLoader </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">GroovyClassLoader</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">String</span><span style="color: #E06C75"> hello </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #98C379">&quot;package com.example.cachedemo</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;import cn.hutool.core.util.IdUtil</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;class BaseValue {</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;    def map = [</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.a</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">1</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.b</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">2</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.c</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: IdUtil.getSnowflake().nextIdStr()]</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;}&quot;</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Class</span><span style="color: #E06C75"> aClass </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">groovyClassLoader</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">parseClass</span><span style="color: #ABB2BF">(hello);</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">try</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">GroovyObject</span><span style="color: #E06C75"> object </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> (GroovyObject) </span><span style="color: #E5C07B">aClass</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">getConstructor</span><span style="color: #ABB2BF">().</span><span style="color: #61AFEF">newInstance</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Map</span><span style="color: #ABB2BF">&lt;</span><span style="color: #E5C07B">String</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Object</span><span style="color: #ABB2BF">&gt;</span><span style="color: #E06C75"> map </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">Map</span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75">String</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> Object</span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75">)</span><span style="color: #E5C07B">object</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">getProperty</span><span style="color: #ABB2BF">(</span><span style="color: #98C379">&quot;map&quot;</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">catch</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">InstantiationException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">IllegalAccessException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">InvocationTargetException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">NoSuchMethodException</span><span style="color: #E06C75"> </span><span style="color: #E06C75; font-style: italic">e</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">RuntimeException</span><span style="color: #E06C75">(e)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+
+<p>下面这个也能正常卸载，是因为<code>aClass</code>的类加载器实际是<code>groovy.lang.GroovyClassLoader$InnerLoader</code>，每次parseClass都使用一个新的<code>groovy.lang.GroovyClassLoader$InnerLoader</code>。所以testLoader结束后类可回收。</p>
+<figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">main</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">String</span><span style="color: #E06C75">[] args) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> i </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> i </span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1000</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> i</span><span style="color: #ABB2BF">++</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">testLoader</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 数量是1, 暂且不清楚是为什么。</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">System</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">out</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">println</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">groovyClassLoader</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">getLoadedClasses</span><span style="color: #ABB2BF">().</span><span style="color: #E5C07B">length</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">GroovyClassLoader</span><span style="color: #E06C75"> groovyClassLoader </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">GroovyClassLoader</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">@</span><span style="color: #E5C07B">SneakyThrows</span></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">testLoader</span><span style="color: #E06C75">() {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">String</span><span style="color: #E06C75"> hello </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #98C379">&quot;package com.example.cachedemo</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;import cn.hutool.core.util.IdUtil</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;class BaseValue {</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;    def map = [</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.a</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">1</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.b</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">2</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.c</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: IdUtil.getSnowflake().nextIdStr()]</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;}&quot;</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Class</span><span style="color: #E06C75"> aClass </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">groovyClassLoader</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">parseClass</span><span style="color: #ABB2BF">(hello);</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">try</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">GroovyObject</span><span style="color: #E06C75"> object </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> (GroovyObject) </span><span style="color: #E5C07B">aClass</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">getConstructor</span><span style="color: #ABB2BF">().</span><span style="color: #61AFEF">newInstance</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Map</span><span style="color: #ABB2BF">&lt;</span><span style="color: #E5C07B">String</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Object</span><span style="color: #ABB2BF">&gt;</span><span style="color: #E06C75"> map </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">Map</span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75">String</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> Object</span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75">)</span><span style="color: #E5C07B">object</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">getProperty</span><span style="color: #ABB2BF">(</span><span style="color: #98C379">&quot;map&quot;</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">catch</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">InstantiationException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">IllegalAccessException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">InvocationTargetException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">NoSuchMethodException</span><span style="color: #E06C75"> </span><span style="color: #E06C75; font-style: italic">e</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">RuntimeException</span><span style="color: #E06C75">(e)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+
+<p>不能正常卸载</p>
+<figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">main</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">String</span><span style="color: #E06C75">[] args) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> i </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> i </span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1000</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> i</span><span style="color: #ABB2BF">++</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">testLoader</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 数量是1</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">System</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">out</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">println</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">groovyClassLoader</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">getLoadedClasses</span><span style="color: #ABB2BF">().</span><span style="color: #E5C07B">length</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">List</span><span style="color: #E06C75"> l </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">ArrayList</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">@</span><span style="color: #E5C07B">SneakyThrows</span></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">testLoader</span><span style="color: #E06C75">() {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">String</span><span style="color: #E06C75"> hello </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #98C379">&quot;package com.example.cachedemo</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;import cn.hutool.core.util.IdUtil</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;class BaseValue {</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;    def map = [</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.a</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">1</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.b</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">2</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">abc.c</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">: IdUtil.getSnowflake().nextIdStr()]</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">+</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #98C379">&quot;}&quot;</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Class</span><span style="color: #E06C75"> aClass </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">groovyClassLoader</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">parseClass</span><span style="color: #ABB2BF">(hello);</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">l</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">add</span><span style="color: #ABB2BF">(aClass);</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">try</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">GroovyObject</span><span style="color: #E06C75"> object </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> (GroovyObject) </span><span style="color: #E5C07B">aClass</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">getConstructor</span><span style="color: #ABB2BF">().</span><span style="color: #61AFEF">newInstance</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Map</span><span style="color: #ABB2BF">&lt;</span><span style="color: #E5C07B">String</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Object</span><span style="color: #ABB2BF">&gt;</span><span style="color: #E06C75"> map </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">Map</span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75">String</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> Object</span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75">)</span><span style="color: #E5C07B">object</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">getProperty</span><span style="color: #ABB2BF">(</span><span style="color: #98C379">&quot;map&quot;</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">catch</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">InstantiationException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">IllegalAccessException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">InvocationTargetException</span><span style="color: #E06C75"> | </span><span style="color: #E5C07B">NoSuchMethodException</span><span style="color: #E06C75"> </span><span style="color: #E06C75; font-style: italic">e</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">RuntimeException</span><span style="color: #E06C75">(e)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=JVM">JVM</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Groovy">Groovy</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

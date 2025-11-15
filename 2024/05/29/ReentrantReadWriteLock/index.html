@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>ReentrantReadWriteLock - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=Java,并发,锁>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">ReentrantReadWriteLock</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-05-29</span> <br>
+  </div>
+  <div class="post-content">
+    <p><a target="_blank" rel="noopener" href="https://blog.csdn.net/fxkcsdn/article/details/82217760">https://blog.csdn.net/fxkcsdn/article/details/82217760</a></p>
+<ul>
+<li>读锁被锁定后，任何线程再获取写锁会阻塞，读锁可以继续获取</li>
+<li>写锁被获取后，获取了写锁的线程可以继续获取读锁或写锁，其它线程任何锁都不能获取</li>
+</ul>
+<p>state被分为两份：高16位用于share（数目是持有的锁的个数，重入也计入），低16位用于exclusive（持有的锁的个数，重入当然得计入）</p>
+<h2 id="字段"><a href="#字段" class="headerlink" title="字段"></a>字段</h2><h3 id="基本使用"><a href="#基本使用" class="headerlink" title="基本使用"></a>基本使用</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">main</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">String</span><span style="color: #E06C75">[] args) throws IOException {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #E06C75"> lock </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">ReentrantReadWriteLock</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">WriteLock</span><span style="color: #E06C75"> writeLock </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">lock</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">writeLock</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">ReadLock</span><span style="color: #E06C75"> readLock </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">lock</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">readLock</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">readLock</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">lock</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">readLock</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">unlock</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">writeLock</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">lock</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">writeLock</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">lock</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<h3 id="关键方法和字段"><a href="#关键方法和字段" class="headerlink" title="关键方法和字段"></a>关键方法和字段</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">class</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #E06C75"> </span><span style="color: #C678DD">implements</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">ReadWriteLock</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> java.io.</span><span style="color: #E5C07B">Serializable</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">ReadLock</span><span style="color: #E06C75"> readerLock</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">WriteLock</span><span style="color: #E06C75"> writerLock</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">public</span><span style="color: #61AFEF"> ReentrantReadWriteLock</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">boolean</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75; font-style: italic">fair</span><span style="color: #ABB2BF">)</span><span style="color: #61AFEF"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #ABB2BF">        sync </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> fair </span><span style="color: #C678DD">?</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">new</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">FairSync</span><span style="color: #ABB2BF">() </span><span style="color: #C678DD">:</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">new</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">NonfairSync</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">        readerLock </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">new</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">ReadLock</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">this</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">        writerLock </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">new</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">WriteLock</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">this</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">public</span><span style="color: #61AFEF"> </span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">WriteLock</span><span style="color: #61AFEF"> writeLock</span><span style="color: #ABB2BF">()</span><span style="color: #61AFEF"> </span><span style="color: #ABB2BF">{ </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> writerLock; }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">public</span><span style="color: #61AFEF"> </span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">ReadLock</span><span style="color: #61AFEF">  readLock</span><span style="color: #ABB2BF">()</span><span style="color: #61AFEF">  </span><span style="color: #ABB2BF">{ </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> readerLock; }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">class</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">ReadLock</span><span style="color: #E06C75"> </span><span style="color: #C678DD">implements</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Lock</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> java.io.</span><span style="color: #E5C07B">Serializable</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Sync</span><span style="color: #E06C75"> sync</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">protected</span><span style="color: #61AFEF"> ReadLock</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75; font-style: italic">lock</span><span style="color: #ABB2BF">)</span><span style="color: #61AFEF"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #ABB2BF">            sync </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">lock</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">sync</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">        }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">class</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">WriteLock</span><span style="color: #E06C75"> </span><span style="color: #C678DD">implements</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Lock</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> java.io.</span><span style="color: #E5C07B">Serializable</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Sync</span><span style="color: #E06C75"> sync</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">protected</span><span style="color: #61AFEF"> WriteLock</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">ReentrantReadWriteLock</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75; font-style: italic">lock</span><span style="color: #ABB2BF">)</span><span style="color: #61AFEF"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #ABB2BF">            sync </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">lock</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">sync</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">        }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #ABB2BF">}</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">abstract</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">class</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Sync</span><span style="color: #E06C75"> </span><span style="color: #C678DD">extends</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">AbstractQueuedSynchronizer</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 缓存的是上一次获取过读锁的非firstReader线程的HoldCounter，用作快速查找的缓存，没必要立即可见不需要是volatile</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 使用tid而不是Thread引用的原因是避免影响垃圾回收</span></span>
+<span class="line"><span style="color: #E06C75">    	</span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">transient</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">HoldCounter</span><span style="color: #E06C75"> cachedHoldCounter</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 记录每个线程获取的读锁的数量，当降为0时则把它移除(Removed whenever a thread&#39;s read hold count drops to 0.)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">transient</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">ThreadLocalHoldCounter</span><span style="color: #E06C75"> readHolds</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">        /**</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * firstReader is the first thread to have acquired the read lock.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * firstReaderHoldCount is firstReader&#39;s hold count.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         *</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * &lt;p&gt;More precisely, firstReader is the unique thread that last</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * changed the shared count from 0 to 1, and has not released the</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * read lock since then; null if there is no such thread.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         *</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * &lt;p&gt;Cannot cause garbage retention unless the thread terminated</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * without relinquishing its read locks, since tryReleaseShared</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * sets it to null.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         *</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * &lt;p&gt;Accessed via a benign data race; relies on the memory</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * model&#39;s out-of-thin-air guarantees for references.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         *</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * https://stackoverflow.com/questions/42588079/what-is-out-of-thin-air-safety</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         *</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * &lt;p&gt;This allows tracking of read holds for uncontended read</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * locks to be very cheap.(意义在于，如果只有一个线程获取读锁的话，记录读锁数目所需的消耗会大大降低)</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         */</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// firstReader不会创建CountHolder也不会被放到readHolds里，毕竟每次查询的时候都会先让currentThread与firstReader比较，如果不是再去比较cachedHoldCounter的tid，如果还不是，最后再去查询readHolds，尽量降低总体查询的时间</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">transient</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Thread</span><span style="color: #E06C75"> firstReader </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">transient</span><span style="color: #E06C75"> </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> firstReaderHoldCount</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #ABB2BF">}</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+
+
+<h2 id="公平和非公平策略的实现："><a href="#公平和非公平策略的实现：" class="headerlink" title="公平和非公平策略的实现："></a>公平和非公平策略的实现：</h2><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">class</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">NonfairSync</span><span style="color: #E06C75"> </span><span style="color: #C678DD">extends</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Sync</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">long</span><span style="color: #E06C75"> serialVersionUID </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">-</span><span style="color: #D19A66">8159625535654395037L</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 若可以获取写锁，则队列内的所有节点都能直接获取</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">final</span><span style="color: #61AFEF"> </span><span style="color: #C678DD">boolean</span><span style="color: #61AFEF"> writerShouldBlock</span><span style="color: #ABB2BF">()</span><span style="color: #61AFEF"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">// writers can always barge(乱闯)</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 若可以获取读锁，当明确第一个节点(head release后第一个唤醒的节点)是写锁的时候才阻塞，否则直接获取读锁（尽量让head release后第一个唤醒的是自己）</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">final</span><span style="color: #61AFEF"> </span><span style="color: #C678DD">boolean</span><span style="color: #61AFEF"> readerShouldBlock</span><span style="color: #ABB2BF">()</span><span style="color: #61AFEF"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #7F848E; font-style: italic">// 如果能够确定第一个节点一定是独占的，则返回true，其实是判断head的下一个节点是否是独占模式的节点</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #7F848E; font-style: italic">// AQS的方法</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">apparentlyFirstQueuedIsExclusive</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">class</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">FairSync</span><span style="color: #E06C75"> </span><span style="color: #C678DD">extends</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Sync</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">long</span><span style="color: #E06C75"> serialVersionUID </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">-</span><span style="color: #D19A66">2274990926593161451L</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 必须等待前面的节点完成</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">final</span><span style="color: #61AFEF"> </span><span style="color: #C678DD">boolean</span><span style="color: #61AFEF"> writerShouldBlock</span><span style="color: #ABB2BF">()</span><span style="color: #61AFEF"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #7F848E; font-style: italic">// AQS的方法</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">hasQueuedPredecessors</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 必须等待前面的节点完成</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">final</span><span style="color: #61AFEF"> </span><span style="color: #C678DD">boolean</span><span style="color: #61AFEF"> readerShouldBlock</span><span style="color: #ABB2BF">()</span><span style="color: #61AFEF"> </span><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">hasQueuedPredecessors</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<h2 id="抽象内部类Sync"><a href="#抽象内部类Sync" class="headerlink" title="抽象内部类Sync"></a>抽象内部类Sync</h2><h3 id="tryAcquire"><a href="#tryAcquire" class="headerlink" title="tryAcquire"></a>tryAcquire</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">protected</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">tryAcquire</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> acquires) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">/*</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * Walkthrough:</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * 1. If read count nonzero or write count nonzero</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    and owner is a different thread, fail.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * 2. If count would saturate(饱和), fail. (This can only</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    happen if count is already nonzero.)</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * 3. Otherwise, this thread is eligible(符合条件的) for lock if</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    it is either a reentrant acquire or</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    queue policy allows it. If so, update state</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    and set owner.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     */</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Thread</span><span style="color: #E06C75"> current </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">currentThread</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> c </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getState</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> w </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">exclusiveCount</span><span style="color: #E06C75">(c)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (c </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// (Note: if c != 0 and w == 0 then shared count != 0)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 有读锁(c != 0 and w == 0) 或者 有写锁(也可能同时有读锁但肯定是同一个线程的)但不是自己的</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 说明没有锁升级功能(即使只有自己一个人获取读锁，也不能直接获取写锁)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (w </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> current </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getExclusiveOwnerThread</span><span style="color: #E06C75">())</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 只有本线程持有写锁，并尝试获取多个写锁</span></span>
+<span class="line"><span style="color: #E06C75">        </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 超出写锁数量范围</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (w </span><span style="color: #56B6C2">+</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">exclusiveCount</span><span style="color: #E06C75">(acquires) </span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75"> MAX_COUNT)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">Error</span><span style="color: #E06C75">(</span><span style="color: #98C379">&quot;Maximum lock count exceeded&quot;</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 由于只有本线程持有写锁，所以直接修改state</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">setState</span><span style="color: #E06C75">(c </span><span style="color: #56B6C2">+</span><span style="color: #E06C75"> acquires)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 此时说明读锁和写锁的数量都为0，需要根据策略决定当前线程是否需要去获取(即执行compareAndSetState)</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">writerShouldBlock</span><span style="color: #E06C75">() </span><span style="color: #56B6C2">||</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">compareAndSetState</span><span style="color: #E06C75">(c</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> c </span><span style="color: #56B6C2">+</span><span style="color: #E06C75"> acquires))</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 获取写锁成功</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #61AFEF">setExclusiveOwnerThread</span><span style="color: #E06C75">(current)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<h3 id="tryRelease"><a href="#tryRelease" class="headerlink" title="tryRelease"></a>tryRelease</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// 如果tryRelease返回true代表需要unpark</span></span>
+<span class="line"><span style="color: #C678DD">protected</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">tryRelease</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> releases) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">isHeldExclusively</span><span style="color: #E06C75">())</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">IllegalMonitorStateException</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> nextc </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getState</span><span style="color: #E06C75">() </span><span style="color: #56B6C2">-</span><span style="color: #E06C75"> releases</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> free </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">exclusiveCount</span><span style="color: #E06C75">(nextc) </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (free)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">setExclusiveOwnerThread</span><span style="color: #E06C75">(</span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #61AFEF">setState</span><span style="color: #E06C75">(nextc)</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// 写锁在当前线程，所以state可以用setState设置</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> free</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<h3 id="tryAcquireShared"><a href="#tryAcquireShared" class="headerlink" title="tryAcquireShared"></a>tryAcquireShared</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">protected</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">tryAcquireShared</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> unused) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">/*</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * Walkthrough:</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * 1. If write lock held by another thread, fail.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * 2. Otherwise, this thread is eligible(符合条件的) for</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    lock wrt state, so ask if it should block</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    because of queue policy. If not, try</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    to grant by CASing state and updating count.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    Note that step does not check for reentrant</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    acquires, which is postponed(推迟) to full version</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    to avoid having to check hold count in</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    the more typical non-reentrant case.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * 3. If step 2 fails either because thread</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    apparently not eligible or CAS fails or count</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *    saturated, chain to version with full retry loop.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     */</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Thread</span><span style="color: #E06C75"> current </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">currentThread</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> c </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getState</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 如果写锁被其它线程持有返回-1代表失败</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">exclusiveCount</span><span style="color: #E06C75">(c) </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">getExclusiveOwnerThread</span><span style="color: #E06C75">() </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> current)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">-</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> r </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">sharedCount</span><span style="color: #E06C75">(c)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 写锁为0或者被自己持有，此时可以获取读锁，但是需要根据对应策略判断是否阻塞</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// SHARED_UNIT：share部分值为1，exclusive部分为0，相当于对share部分加1</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">readerShouldBlock</span><span style="color: #E06C75">() </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// 不需要阻塞</span></span>
+<span class="line"><span style="color: #E06C75">        r </span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75"> MAX_COUNT </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">compareAndSetState</span><span style="color: #E06C75">(c</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> c </span><span style="color: #56B6C2">+</span><span style="color: #E06C75"> SHARED_UNIT)) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 进入if内部代表已经获取成功</span></span>
+<span class="line"><span style="color: #E06C75">        </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 之前读锁为0, 作为0~1的线程，设置当前线程为firstReader</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (r </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">            firstReader </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> current</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            firstReaderHoldCount </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (firstReader </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> current) { </span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 当前线程作为firstReader读锁重入了</span></span>
+<span class="line"><span style="color: #E06C75">            firstReaderHoldCount</span><span style="color: #ABB2BF">++;</span></span>
+<span class="line"><span style="color: #E06C75">        } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// cachedHoldCounter缓存的是上一次获取过读锁的非firstReader线程的HoldCounter</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 现在需要更新cachedHoldCounter和它的count</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #E5C07B">HoldCounter</span><span style="color: #E06C75"> rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> cachedHoldCounter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 如果cachedHoldCounter为空，或者不是自己，那么设置成自己</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (rh </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">tid</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getThreadId</span><span style="color: #E06C75">(current))</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// get()如果当前线程没有创建过，那么返回一个新的HoldCounter,count==0</span></span>
+<span class="line"><span style="color: #E06C75">                cachedHoldCounter </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">readHolds</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">get</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">count</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// 在tryReleaseShared里，如果readHolds里的HoldCounter count为0会把它从readHolds移除（为了保证firstReader线程不出现在readHolds）。所以需要重新添加到readHolds</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #E5C07B">readHolds</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">set</span><span style="color: #ABB2BF">(rh);</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">count</span><span style="color: #ABB2BF">++;</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 需要block或者获取失败，因此进入完整的获取操作</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">fullTryAcquireShared</span><span style="color: #E06C75">(current)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">/**</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">循环尝试：一旦判断写锁被其它线程持有(没有尝试的必要) 或者 线程需要阻塞且不满足重入条件(出于公平性不应该尝试)时返回-1，否则可以尝试获取资源</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">*/</span></span>
+<span class="line"><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">fullTryAcquireShared</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Thread</span><span style="color: #E06C75"> current) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">/*</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * This code is in part redundant with that in</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * tryAcquireShared but is simpler overall by not</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * complicating tryAcquireShared with interactions between</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * retries and lazily reading hold counts.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     */</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">HoldCounter</span><span style="color: #E06C75"> rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #ABB2BF">;;</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> c </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getState</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">exclusiveCount</span><span style="color: #E06C75">(c) </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 如果写锁被其它线程持有返回-1代表失败</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">getExclusiveOwnerThread</span><span style="color: #E06C75">() </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> current)</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">-</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// else 当前线程持有写锁</span></span>
+<span class="line"><span style="color: #E06C75">        } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">readerShouldBlock</span><span style="color: #E06C75">()) { </span><span style="color: #7F848E; font-style: italic">// 当前线程一定未持有写锁，如果此时获取读锁需要block则：</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// Make sure we&#39;re not acquiring read lock reentrantly</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 自己拥有读锁，因为firstReader是最近的将读锁从0-1的线程，并且没有释放掉读锁</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (firstReader </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> current) { </span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// assert firstReaderHoldCount &gt; 0;</span></span>
+<span class="line"><span style="color: #E06C75">            } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// 懒加载当前线程的HoldCounter</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (rh </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">                    rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> cachedHoldCounter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (rh </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">tid</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getThreadId</span><span style="color: #E06C75">(current)) {</span></span>
+<span class="line"><span style="color: #E06C75">                        rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">readHolds</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">get</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">                        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">count</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">                            </span><span style="color: #E5C07B">readHolds</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">remove</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">                    }</span></span>
+<span class="line"><span style="color: #E06C75">                }</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// 当前线程没有获取过读锁(不满足重入条件)，且需要阻塞，所以不应该进行尝试</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">count</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">-</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            }</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">        </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">sharedCount</span><span style="color: #E06C75">(c) </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> MAX_COUNT)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">Error</span><span style="color: #E06C75">(</span><span style="color: #98C379">&quot;Maximum lock count exceeded&quot;</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 可以尝试获取资源</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">compareAndSetState</span><span style="color: #E06C75">(c</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> c </span><span style="color: #56B6C2">+</span><span style="color: #E06C75"> SHARED_UNIT)) {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 资源获取成功</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 下面的代码与tryAcquireShared的完全一致，不做解析</span></span>
+<span class="line"><span style="color: #E06C75">            </span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">sharedCount</span><span style="color: #E06C75">(c) </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">                firstReader </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> current</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                firstReaderHoldCount </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (firstReader </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> current) {</span></span>
+<span class="line"><span style="color: #E06C75">                firstReaderHoldCount</span><span style="color: #ABB2BF">++;</span></span>
+<span class="line"><span style="color: #E06C75">            } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (rh </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">                    rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> cachedHoldCounter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (rh </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">tid</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getThreadId</span><span style="color: #E06C75">(current))</span></span>
+<span class="line"><span style="color: #E06C75">                    rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">readHolds</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">get</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">count</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #E5C07B">readHolds</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">set</span><span style="color: #ABB2BF">(rh);</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">count</span><span style="color: #ABB2BF">++;</span></span>
+<span class="line"><span style="color: #E06C75">                cachedHoldCounter </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> rh</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// cache for release</span></span>
+<span class="line"><span style="color: #E06C75">            }</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<h3 id="tryReleaseShared"><a href="#tryReleaseShared" class="headerlink" title="tryReleaseShared"></a>tryReleaseShared</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">protected</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">tryReleaseShared</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> unused) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Thread</span><span style="color: #E06C75"> current </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">currentThread</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 下面的代码在减少count，firstReader完全释放了锁就设置成null，其它线程完全释放了锁就从readHolds删除</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (firstReader </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> current) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// assert firstReaderHoldCount &gt; 0;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (firstReaderHoldCount </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">            firstReader </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">else</span></span>
+<span class="line"><span style="color: #E06C75">            firstReaderHoldCount</span><span style="color: #ABB2BF">--;</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">HoldCounter</span><span style="color: #E06C75"> rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> cachedHoldCounter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (rh </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">tid</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getThreadId</span><span style="color: #E06C75">(current))</span></span>
+<span class="line"><span style="color: #E06C75">            rh </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">readHolds</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">get</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> count </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">count</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (count </span><span style="color: #56B6C2">&lt;=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">1</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #E5C07B">readHolds</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">remove</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (count </span><span style="color: #56B6C2">&lt;=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">unmatchedUnlockException</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #ABB2BF">--</span><span style="color: #E5C07B">rh</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">count</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// state的读锁数减一</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #ABB2BF">;;</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> c </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">getState</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> nextc </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> c </span><span style="color: #56B6C2">-</span><span style="color: #E06C75"> SHARED_UNIT</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">compareAndSetState</span><span style="color: #E06C75">(c</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> nextc))</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 当nextc不为零时，意味着还有读锁被持有。那么写线程没必要唤醒，读线程一定能获取到读锁（通过propagate机制或nonfair读锁，只要不超出资源数）也没必要在释放资源时进行唤醒</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 只有当读锁全部释放完毕时，此时需要唤醒可能一直在队首等待着的写线程</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> nextc </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Java">Java</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%B9%B6%E5%8F%91">并发</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E9%94%81">锁</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

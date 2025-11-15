@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>InnoDB 什么时候加锁 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=数据库,MySQL>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">InnoDB 什么时候加锁</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2019-09-12</span> <br>
+  </div>
+  <div class="post-content">
+    <h2 id="查看锁信息"><a href="#查看锁信息" class="headerlink" title="查看锁信息"></a>查看锁信息</h2><figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- 查看当前的锁</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">performance_schema</span><span style="color: #ABB2BF">.</span><span style="color: #D19A66">data_locks</span><span style="color: #ABB2BF">\G;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">performance_schema</span><span style="color: #ABB2BF">.</span><span style="color: #D19A66">data_locks_wait</span><span style="color: #ABB2BF">\G;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 查看处于等待状态的锁</span></span>
+<span class="line"><span style="color: #C678DD">SELECT</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">FROM</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">sys</span><span style="color: #ABB2BF">.</span><span style="color: #D19A66">innodb_lock_waits</span><span style="color: #ABB2BF">\G;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 在TRANSACTIONS部分可查看事务创建了几个锁结构</span></span>
+<span class="line"><span style="color: #ABB2BF">SHOW ENGINE INNODB </span><span style="color: #C678DD">STATUS</span><span style="color: #ABB2BF">\G;</span></span></code></pre></div></div></figure>
+
+<h2 id="行锁"><a href="#行锁" class="headerlink" title="行锁"></a>行锁</h2><h3 id="record-locks"><a href="#record-locks" class="headerlink" title="record locks"></a>record locks</h3><p>A record lock is a lock on an index record. For example, <code>SELECT c1 FROM t WHERE c1 = 10 FOR UPDATE;</code> prevents any other transaction from inserting, updating, or deleting rows where the value of t.c1 is 10.</p>
+<blockquote>
+<p>除了 for update 还有 SELECT … LOCK IN SHARE MODE;</p>
+</blockquote>
+<h4 id="无索引"><a href="#无索引" class="headerlink" title="无索引"></a>无索引</h4><p>先执行事务1后执行事务2，事务2不会卡住</p>
+<p>两个事务都能成功加锁，Read committed级别下会给supremum(伪最大记录)加行锁，这个行锁不会互相阻塞。</p>
+<p>两个事务都能成功加锁，RR下会加(伪最小记录，伪最大记录)gap lock，和伪最大记录行锁。</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">create</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">table</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">t</span><span style="color: #ABB2BF">(a </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 事务1</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a</span><span style="color: #56B6C2">=</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 事务2</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a</span><span style="color: #56B6C2">=</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">;</span></span></code></pre></div></div></figure>
+
+<p>随后插入数据，</p>
+<p>事务1会进行全表扫描，在RR中会加<code>[a=1, 最大]</code>，即(最小, a&#x3D;1)gap，a&#x3D;1行锁，(a&#x3D;1, 最大)gap，最大 行锁</p>
+<p>事务2在扫描数据时会给所有扫描到的数据加锁，当尝试获取a&#x3D;1的行锁时导致阻塞。</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">10</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 事务1</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 事务2</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; 或者 </span><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">2</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; 都卡住</span></span></code></pre></div></div></figure>
+
+<p>就算插入许多条数据, <code>select * from t where a = 5 for update;</code> 也会加许多行锁。</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #ABB2BF">delimiter $$</span></span>
+<span class="line"><span style="color: #C678DD">DROP</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">PROCEDURE</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">IF</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">EXISTS</span><span style="color: #ABB2BF"> proc_batch_insert;</span></span>
+<span class="line"><span style="color: #C678DD">CREATE</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">PROCEDURE</span><span style="color: #ABB2BF"> proc_batch_insert()</span></span>
+<span class="line"><span style="color: #C678DD">BEGIN</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">DECLARE</span><span style="color: #ABB2BF"> i </span><span style="color: #C678DD">INT</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">SET</span><span style="color: #ABB2BF"> i</span><span style="color: #56B6C2">=</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">WHILE</span><span style="color: #ABB2BF"> i </span><span style="color: #56B6C2">&lt;</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">100000</span><span style="color: #ABB2BF"> DO</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #C678DD">INSERT INTO</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">VALUES</span><span style="color: #ABB2BF">(i);</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #C678DD">SET</span><span style="color: #ABB2BF"> i</span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF">i+</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">END</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">WHILE</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">END</span><span style="color: #ABB2BF"> $$</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">delimiter ;</span></span>
+<span class="line"><span style="color: #C678DD">call</span><span style="color: #ABB2BF"> proc_batch_insert();</span></span></code></pre></div></div></figure>
+
+<h4 id="唯一索引"><a href="#唯一索引" class="headerlink" title="唯一索引"></a>唯一索引</h4><p>都不会卡住</p>
+<p>Read committed级别下会给supremum(伪最大记录)加行锁，这个行锁不会互相阻塞。</p>
+<p>RR级别下会加(伪最小记录，伪最大记录)gap lock，和伪最大记录行锁。后续如果插入的话会阻塞。</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">create</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">table</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">t</span><span style="color: #ABB2BF">(a </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">primary key</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 事务1</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a</span><span style="color: #56B6C2">=</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 事务2</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a</span><span style="color: #56B6C2">=</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">;</span></span></code></pre></div></div></figure>
+
+<p>随后插入数据，</p>
+<p>事务1在RR中会加<code>(最小, 10)gap</code></p>
+<p>事务2会加<code>(最小, 10)gap</code>，因此不会阻塞。</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">10</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 事务1</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 事务2</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; 或者 </span><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">2</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; 都不会卡住</span></span></code></pre></div></div></figure>
+
+<p>事务1在RR中会加<code>(10, 最大]</code></p>
+<p>事务2会加<code>(10, 最大]</code>，由于最大行锁不会阻塞，因此这里不会阻塞。</p>
+<pre><code>-- 事务1
+begin;
+select * from t where a = 20 for update;
+
+-- 事务2
+begin;
+select * from t where a = 20 for update;
+</code></pre>
+<h4 id="duplicate-key"><a href="#duplicate-key" class="headerlink" title="duplicate key"></a>duplicate key</h4><blockquote>
+<p><a target="_blank" rel="noopener" href="https://dev.mysql.com/doc/refman/5.7/en/innodb-locks-set.html">https://dev.mysql.com/doc/refman/5.7/en/innodb-locks-set.html</a> If a duplicate-key error occurs, a shared lock on the duplicate index record is set. This use of a shared lock can result in deadlock should there be multiple sessions trying to insert the same row if another session already has an exclusive lock.</p>
+</blockquote>
+<p>死锁</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- 1</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">; </span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> tp(a) </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">10</span><span style="color: #ABB2BF">); </span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 2</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> tp(a) </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">20</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 1</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> tp(a) </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">20</span><span style="color: #ABB2BF">); </span><span style="color: #7F848E; font-style: italic">-- 冲突，帮助2添加X锁，自己等待S锁</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 2</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> tp(a) </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">10</span><span style="color: #ABB2BF">); </span><span style="color: #7F848E; font-style: italic">-- 冲突，帮助1添加X锁，自己等待S锁。互相等待导致死锁</span></span></code></pre></div></div></figure>
+<blockquote>
+<p>至于为什么要加锁：<a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/21111676/mysql-duplicate-key-error-causes-a-shared-lock-set-on-the-duplicate-index-record">https://stackoverflow.com/questions/21111676/mysql-duplicate-key-error-causes-a-shared-lock-set-on-the-duplicate-index-record</a></p>
+</blockquote>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- Transaction A</span></span>
+<span class="line"><span style="color: #C678DD">BEGIN</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">TRANSACTION</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">INSERT INTO</span><span style="color: #ABB2BF"> mytable </span><span style="color: #C678DD">VALUE</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">); </span><span style="color: #7F848E; font-style: italic">-- fails as &quot;duplicate&quot;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- Transaction B</span></span>
+<span class="line"><span style="color: #C678DD">BEGIN</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">DELETE</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">FROM</span><span style="color: #ABB2BF"> mytable </span><span style="color: #C678DD">WHERE</span><span style="color: #ABB2BF"> field </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- must be put on hold, see below</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- Transaction A</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- transaction is still in progress</span></span>
+<span class="line"><span style="color: #C678DD">INSERT INTO</span><span style="color: #ABB2BF"> mytable </span><span style="color: #C678DD">VALUE</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">); </span><span style="color: #7F848E; font-style: italic">-- must fail to stay consistent with the previous attempt。</span></span></code></pre></div></div></figure>
+
+<p>所以说加锁是为了不让其它事务去删除&#x2F;修改它，导致出现同一个事务中插入结果不一致的情况。</p>
+<p>但是为什么不用排他锁，如果用的是排他锁，这会导致其它事务无法获取共享锁</p>
+<h3 id="gap-locks"><a href="#gap-locks" class="headerlink" title="gap locks"></a>gap locks</h3><p>锁住某条记录的前面的空隙，在这条记录之前的空隙插入记录时需要获取插入意向锁，此时会阻塞。<strong>gap lock之间不会互相阻塞，它仅阻止其它事务插入</strong>。InnoDB的<code>lock_rec_has_to_wait</code>方法实现，可以看到的LOCK_GAP类型的锁只要不带有插入意向标识，不必等待其它锁（表锁除外）。只有RR级别和串行化才有gap lock（不过外键和唯一键重复检查仍然会有）。</p>
+<blockquote>
+<p>结果不唯一就会使用gap lock</p>
+</blockquote>
+<p>无索引的情况：</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">create</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">table</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">t</span><span style="color: #ABB2BF">(a </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- trans1</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- trans2</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">情况1：</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">); </span><span style="color: #7F848E; font-style: italic">-- trans1</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- trans2 阻塞</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">情况2：</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">2</span><span style="color: #ABB2BF">); </span><span style="color: #7F848E; font-style: italic">-- trans1</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- trans2 也阻塞（因为这里进行了全表扫描，每行数据都有gap lock，即这里是next-key）</span></span></code></pre></div></div></figure>
+
+<p>非唯一索引的情况：</p>
+<figure class="shiki sql"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">create</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">table</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">tk</span><span style="color: #ABB2BF">(a </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF">, </span><span style="color: #C678DD">index</span><span style="color: #ABB2BF"> k_a(a));</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> tk </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">), (</span><span style="color: #D19A66">2</span><span style="color: #ABB2BF">), (</span><span style="color: #D19A66">2</span><span style="color: #ABB2BF">), (</span><span style="color: #D19A66">4</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- trans1</span></span>
+<span class="line"><span style="color: #C678DD">begin</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- trans2</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">情况1：</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">); </span><span style="color: #7F848E; font-style: italic">-- trans1</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">2</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- trans2 阻塞</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">情况2：</span></span>
+<span class="line"><span style="color: #C678DD">insert into</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">values</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">2</span><span style="color: #ABB2BF">); </span><span style="color: #7F848E; font-style: italic">-- trans1</span></span>
+<span class="line"><span style="color: #C678DD">select</span><span style="color: #ABB2BF"> * </span><span style="color: #C678DD">from</span><span style="color: #ABB2BF"> t </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> a </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">2</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">update</span><span style="color: #ABB2BF">; </span><span style="color: #7F848E; font-style: italic">-- trans2 不阻塞（因为这里只为a=2的记录加了gap lock）</span></span></code></pre></div></div></figure>
+
+<p>If <code>a</code> is not indexed or has a nonunique index, the statement <strong>does lock</strong> the preceding gap.</p>
+<p>Gap locking is not needed for statements that lock rows using a unique index to search for a unique row.（防止幻读）（如果结果是唯一的就不可能使用到gap lock）(This does not include the case that the search condition <strong>includes only some columns</strong> of a multiple-column unique index; in that case, <strong>gap locking does occur</strong>.就是说如果使用的是唯一复合索引的一部分列，也能够使用到gap lock。很好理解因为只是用到了一部分列那么结果不一定是唯一的)</p>
+<blockquote>
+<p><code>innodb_locks_unsafe_for_binlog</code>：静态参数，默认为0，表示启动gap lock（实际会用<code>next-key lock</code>），如果设置为1，表示禁用gap lock，这时mysql就只有record lock了，不过值得注意的是，即使了设置了1，关于外键和唯一键重复检查方面用到的gap lock依旧有效。</p>
+</blockquote>
+<h3 id="Insert-Intention-Locks"><a href="#Insert-Intention-Locks" class="headerlink" title="Insert Intention Locks"></a>Insert Intention Locks</h3><p>一条记录前的<code>gap</code>被一个事务锁定后，另外两个事务分别在这个<code>gap</code>里面插入不同的数据，这时它们需要获取这条记录的<code>插入意向锁</code>，且都能获取成功，<code>gap</code>被第一个事务释放时它们可以同时插入。为什么不用<code>gap lock</code>，因为<code>插入意向锁</code>在插入不同数据时可以同时进行。插入意向锁并不会阻止别的事务继续获取该记录上任何类型的锁。</p>
+<h3 id="隐式锁"><a href="#隐式锁" class="headerlink" title="隐式锁"></a>隐式锁</h3><p>一个事务对<strong>新插入的记录</strong>（<code>delete</code>与<code>update</code>不是这样）可以不显式的加锁（生成一个锁结构），但是由于<code>事务id</code>，相当于加了一个<code>隐式锁</code>。别的事务在对这条记录加<code>S锁</code>或者<code>X锁</code>时，由于<code>隐式锁</code>的存在，会先帮助当前事务生成一个锁结构，然后自己再生成一个锁结构后进入等待状态。</p>
+<p>例子：</p>
+<p>一个事务在执行<code>INSERT</code>操作时，如果即将插入的<code>间隙</code>已经被其他事务加了<code>gap锁</code>，那么本次<code>INSERT</code>操作会阻塞，并且当前事务会在该间隙上加一个<code>插入意向锁</code>，否则一般情况下<code>INSERT</code>操作是不加锁的。那如果一个事务A首先插入了一条记录（此时并没有与该记录关联的锁结构），然后另一个事务：</p>
+<ul>
+<li><p>立即使用<code>SELECT ... LOCK IN SHARE MODE</code>语句读取这条记录，也就是在要获取这条记录的<code>S锁</code>，或者使用<code>SELECT ... FOR UPDATE</code>语句读取这条记录，也就是要获取这条记录的<code>X锁</code></p>
+<p>如果允许这种情况的发生，那么可能产生<code>脏读</code>问题。(由于A回滚)</p>
+</li>
+<li><p>立即修改这条记录，也就是要获取这条记录的<code>X锁</code>，该咋办？</p>
+<p>如果允许这种情况的发生，那么可能产生<code>脏写</code>问题(由于A回滚)。</p>
+</li>
+</ul>
+<p>这时候<code>事务id</code>要起作用。把聚簇索引和二级索引中的记录分开看一下：</p>
+<ul>
+<li>情景一：对于聚簇索引记录来说，有一个<code>trx_id</code>隐藏列，该隐藏列记录着最后改动该记录的<code>事务id</code>。那么如果在当前事务中新插入一条聚簇索引记录后，该记录的<code>trx_id</code>隐藏列代表的的就是当前事务的<code>事务id</code>，如果其他事务此时想对该记录添加<code>S锁</code>或者<code>X锁</code>时，首先会看一下该记录的<code>trx_id</code>隐藏列代表的事务是否是当前的活跃事务，如果是的话，那么就帮助当前事务创建一个<code>X锁</code>（也就是为当前事务创建一个锁结构，<code>is_waiting</code>属性是<code>false</code>），然后自己进入等待状态（也就是为自己也创建一个锁结构，<code>is_waiting</code>属性是<code>true</code>）。</li>
+<li>情景二：对于二级索引记录来说，本身并没有<code>trx_id</code>隐藏列，但是在二级索引页面的<code>Page Header</code>部分有一个<code>PAGE_MAX_TRX_ID</code>属性，该属性代表对该页面做改动的最大的<code>事务id</code>，如果<code>PAGE_MAX_TRX_ID</code>属性值小于当前最小的活跃<code>事务id</code>，那么说明对该页面做修改的事务都已经提交了，否则就需要在页面中定位到对应的二级索引记录，然后回表找到它对应的聚簇索引记录，然后再重复<code>情景一</code>的做法。</li>
+</ul>
+<h2 id="表锁"><a href="#表锁" class="headerlink" title="表锁"></a>表锁</h2><p>实际上InnoDB本身并不会自动为表添加S锁或X锁（在执行ddl、dml时），在执行<code>Lock table t read</code>或<code>Lock table t write</code>时才会锁整个表。</p>
+<p>在两个会话中分别执行ddl与dml时会由Server层使用元数据锁实现阻塞操作。</p>
+<p>在获取行S锁或行X锁时需要先获取表级的IS锁或IX锁，IS锁和IX锁只是为了后续在加表级别的S锁和X锁时方便判断表中是否有已经被加S锁或X锁的记录。</p>
+<p><code>AUTO-INC</code>锁是在向一个有auto-inc列的表中插入新数据时需要获取的锁，并且插入成功就自动释放不需要等待事务提交。<br>并且它还有一种轻量级形式，即在获得锁之后获取所有需要插入的记录的auto_inc值，不需要等待数据插入就将锁释放。<br><code>innodb_autoinc_lock_mode</code>值为0时，一律采用AUTO-INC锁；当<code>innodb_autoinc_lock_mode</code>值为2时，一律采用轻量级锁；当<code>innodb_autoinc_lock_mode</code>值为1时，两种方式混着来</p>
+<h3 id="意向锁"><a href="#意向锁" class="headerlink" title="意向锁"></a>意向锁</h3><ul>
+<li>意向锁都是表锁</li>
+<li>意向锁用于表示表内的某些记录是否被加了 S&#x2F;X 锁</li>
+<li>意向共享锁（IS）：事务在给一个数据行加共享锁前必须先取得该表的 IS 锁。</li>
+<li>意向排他锁（IX）：事务在给一个数据行加排他锁前必须先取得该表的 IX 锁。</li>
+</ul>
+<p>意向锁之间不互斥，意向锁与非意向锁之间的互斥关系与对应非意向锁之间的互斥关系一致。</p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E6%95%B0%E6%8D%AE%E5%BA%93">数据库</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=MySQL">MySQL</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

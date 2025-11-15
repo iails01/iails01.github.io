@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>HTTPS - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=网络,协议,安全>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">HTTPS</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2019-10-07</span> <br>
+  </div>
+  <div class="post-content">
+    <ul>
+<li>x.509证书：<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/36832100">https://zhuanlan.zhihu.com/p/36832100</a></li>
+<li>极客时间：<a target="_blank" rel="noopener" href="https://time.geekbang.org/column/article/112122">https://time.geekbang.org/column/article/112122</a></li>
+</ul>
+<h2 id="证书"><a href="#证书" class="headerlink" title="证书"></a>证书</h2><h3 id="为什么要证书"><a href="#为什么要证书" class="headerlink" title="为什么要证书"></a>为什么要证书</h3><p>防止中间人攻击（MITM：Man-in-the-Middle Attack）</p>
+<p>中间人从一开始就介入，客户端与中间人互相通信，中间人与服务端互相通信，客户端和服务端不能发现中间人的存在。</p>
+<p>而通过证书，客户端与服务端互相发送自己的证书给对方，通过验证证书就能判断此证书用于哪些域名&#x2F;ip，如果发现对方不是此证书的使用者或者证书不被信任，那么就说明可能对方是中间人。</p>
+<h3 id="证书怎么生成的"><a href="#证书怎么生成的" class="headerlink" title="证书怎么生成的"></a>证书怎么生成的</h3><ol>
+<li>将<code>证书数据</code>通过<code>签名哈希算法</code>得到<code>hash</code>，<strong>证书数据里含有<code>证书使用者的公钥</code></strong></li>
+<li>再通过<strong>证书发行者的私钥</strong>根据<code>签名算法</code>加密<code>hash</code>生成一个<code>签名</code>。</li>
+</ol>
+<p><code>证书数据</code>+<code>签名</code>+<code>一些元信息，如签名哈希算法、签名算法等</code>就是证书。</p>
+<h3 id="验证证书签名"><a href="#验证证书签名" class="headerlink" title="验证证书签名"></a>验证证书签名</h3><ol>
+<li>得到证书后，根据证书中<code>证书数据</code>通过<code>签名哈希算法</code>得到<code>hash</code></li>
+<li>再通过<strong>证书发行者的公钥</strong>（证书里有发行者的唯一识别编号），根据<code>签名算法</code>解密<code>签名</code>得到<code>hash2</code></li>
+<li>如果<code>hash2</code>与<code>hash</code>相等，那么说明，证书确实是被这个发行者签名的并且内容没有被修改。</li>
+<li>如果这个<strong>发行者是自己信任的</strong>那么这个证书就被信任。</li>
+</ol>
+<h3 id="如何获得对应CA的公钥"><a href="#如何获得对应CA的公钥" class="headerlink" title="如何获得对应CA的公钥"></a>如何获得对应CA的公钥</h3><p>证书颁发机构叫做<code>certificate authority</code>，是作为证书的发行者。</p>
+<p>CA也有自己的证书（被其它CA签名，或者自己签名），那么只要<strong>获得这个CA的证书</strong>（不知道如何获得）就能得到CA的公钥，但是这时还需要验证这个CA的证书是否被自己信任。</p>
+<p>如何验证：如果系统内置了此CA的证书，那么这个证书就是被信任的。如果没有，那么需要验证此证书的签名（即继续找给这个证书签名的CA，一层一层找，直到某个CA的证书被自己信任，此时就能判定签名是否正确）。</p>
+<h3 id="创建一对非对称密钥"><a href="#创建一对非对称密钥" class="headerlink" title="创建一对非对称密钥"></a>创建一对非对称密钥</h3><figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf"># 生成私钥</span></span>
+<span class="line"><span style="color: #abb2bf">openssl genrsa -out pri.key 1024</span></span>
+<span class="line"><span style="color: #abb2bf"># 生成此私钥对应的公钥，一样的私钥每次生成的公钥都是一样的</span></span>
+<span class="line"><span style="color: #abb2bf">openssl rsa -in pri.key -pubout -out pub.key</span></span></code></pre></div></div></figure>
+
+<h3 id="生成证书请求"><a href="#生成证书请求" class="headerlink" title="生成证书请求"></a>生成证书请求</h3><figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf"># 通过私钥生成证书请求</span></span>
+<span class="line"><span style="color: #abb2bf">openssl req -key pri.key -new -out certificate.req</span></span>
+<span class="line"><span style="color: #abb2bf"></span></span>
+<span class="line"><span style="color: #abb2bf"></span></span>
+<span class="line"><span style="color: #abb2bf">root@VM_0_17_centos ~/d/https# openssl req -key pri.key -new -out c.req</span></span>
+<span class="line"><span style="color: #abb2bf">You are about to be asked to enter information that will be incorporated</span></span>
+<span class="line"><span style="color: #abb2bf">into your certificate request.</span></span>
+<span class="line"><span style="color: #abb2bf">What you are about to enter is what is called a Distinguished Name or a DN.</span></span>
+<span class="line"><span style="color: #abb2bf">There are quite a few fields but you can leave some blank</span></span>
+<span class="line"><span style="color: #abb2bf">For some fields there will be a default value,</span></span>
+<span class="line"><span style="color: #abb2bf">If you enter &#39;.&#39;, the field will be left blank.</span></span>
+<span class="line"><span style="color: #abb2bf">-----</span></span>
+<span class="line"><span style="color: #abb2bf">Country Name (2 letter code) [XX]:CN</span></span>
+<span class="line"><span style="color: #abb2bf">State or Province Name (full name) []:JiangXi</span></span>
+<span class="line"><span style="color: #abb2bf">Locality Name (eg, city) [Default City]:GanZhou</span></span>
+<span class="line"><span style="color: #abb2bf">Organization Name (eg, company) [Default Company Ltd]:iails</span></span>
+<span class="line"><span style="color: #abb2bf">Organizational Unit Name (eg, section) []:</span></span>
+<span class="line"><span style="color: #abb2bf">Common Name (eg, your name or your server&#39;s hostname) []:iails</span></span>
+<span class="line"><span style="color: #abb2bf">Email Address []:iailsfe@163.com</span></span>
+<span class="line"><span style="color: #abb2bf"></span></span>
+<span class="line"><span style="color: #abb2bf">Please enter the following &#39;extra&#39; attributes</span></span>
+<span class="line"><span style="color: #abb2bf">to be sent with your certificate request</span></span>
+<span class="line"><span style="color: #abb2bf">A challenge password []:xxx</span></span>
+<span class="line"><span style="color: #abb2bf">An optional company name []:</span></span>
+<span class="line"><span style="color: #abb2bf">root@VM_0_17_centos ~/d/https#</span></span>
+<span class="line"><span style="color: #abb2bf">root@VM_0_17_centos ~/d/https# ll</span></span>
+<span class="line"><span style="color: #abb2bf">total 12K</span></span>
+<span class="line"><span style="color: #abb2bf">-rw-r--r-- 1 root root 696 Oct  7 17:27 certificate.req</span></span>
+<span class="line"><span style="color: #abb2bf">-rw-r--r-- 1 root root 887 Oct  7 17:18 pri.key</span></span>
+<span class="line"><span style="color: #abb2bf">-rw-r--r-- 1 root root 272 Oct  7 17:23 pub.key</span></span></code></pre></div></div></figure>
+
+<h3 id="生成证书"><a href="#生成证书" class="headerlink" title="生成证书"></a>生成证书</h3><p>X.509是密码学里公钥证书的格式标准。X.509证书里含有公钥、身份信息和签名信息。</p>
+<figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf"># 需要CA自己的私钥和证书，然后就能通过证书请求生成一个自己签名后的证书</span></span>
+<span class="line"><span style="color: #abb2bf">openssl x509 -req -in certificate.req -CA cacertificate.pem -CAkey capri.key -out certificate.pem</span></span></code></pre></div></div></figure>
+
+<p>还有一种证书，称为<code>Self-Signed Certificate</code>，就是自己给自己签名。</p>
+<h3 id="查看证书内容"><a href="#查看证书内容" class="headerlink" title="查看证书内容"></a>查看证书内容</h3><figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf">openssl x509 -in certificate.pem -noout -text</span></span></code></pre></div></div></figure>
+
+<h2 id="https通信"><a href="#https通信" class="headerlink" title="https通信"></a>https通信</h2><p>计算对称密钥的算法是：<code>Diffie Hellman 算法</code></p>
+<p>如果用的是<code>ephemeral Diffie Hellman 算法</code>，server hello done前面还有一个server key exchange.<a target="_blank" rel="noopener" href="https://security.stackexchange.com/questions/79482/whats-the-purpose-of-server-key-exchange-when-using-ephemeral-diffie-hellman#:~:text=In%20Diffie%2DHellman,the%20ServerKeyExchange">https://security.stackexchange.com/questions/79482/whats-the-purpose-of-server-key-exchange-when-using-ephemeral-diffie-hellman#:~:text=In%20Diffie%2DHellman,the%20ServerKeyExchange</a>.</p>
+<p>貌似没有 client certificate，需要server发一个certificate request，client才会发client certificate。</p>
+<p>为什么需要三个随机数，为了防止重放攻击 <a target="_blank" rel="noopener" href="https://security.stackexchange.com/a/218492">https://security.stackexchange.com/a/218492</a></p>
+<p><img src="https://upload-images.jianshu.io/upload_images/5555267-54ff212be2bee109.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt="https流程"></p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E7%BD%91%E7%BB%9C">网络</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%8D%8F%E8%AE%AE">协议</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%AE%89%E5%85%A8">安全</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

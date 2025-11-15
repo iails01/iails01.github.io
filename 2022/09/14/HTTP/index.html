@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>HTTP - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=网络,协议>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">HTTP</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2022-09-14</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="HTTP-状态码"><a href="#HTTP-状态码" class="headerlink" title="HTTP 状态码"></a>HTTP 状态码</h3><h4 id="1xx-Informational（信息性状态码）"><a href="#1xx-Informational（信息性状态码）" class="headerlink" title="1xx Informational（信息性状态码）"></a>1xx Informational（信息性状态码）</h4><p>相比于其他类别状态码来说，1xx 你平时你大概率不会碰到，所以这里直接跳过。</p>
+<h4 id="20x-成功"><a href="#20x-成功" class="headerlink" title="20x 成功"></a>20x 成功</h4><ul>
+<li>200 OK ：请求被成功处理。比如我们发送一个查询用户数据的HTTP 请求到服务端，服务端正确返回了用户数据。这个是我们平时最常见的一个 HTTP 状态码。</li>
+<li>201 Created ：请求被成功处理并且在服务端创建了一个新的资源。比如我们通过 POST 请求创建一个新的用户。</li>
+<li>202 Accepted ：服务端已经接收到了请求，但是还未处理。</li>
+</ul>
+<h4 id="30x-重定向"><a href="#30x-重定向" class="headerlink" title="30x 重定向"></a>30x 重定向</h4><ul>
+<li><p><strong>301 (Moved Permanently):</strong> 永久移动，后续请求都使用新地址，只对GET自动跳转，不会自动对POST&#x2F;PUT&#x2F;DELETE进行跳转。</p>
+</li>
+<li><p><strong>302 (Found (aka Object Moved aka Moved Temporarily)):</strong> 临时移动，后续请求还是使用旧地址，只对GET自动跳转，不会自动对POST&#x2F;PUT&#x2F;DELETE进行跳转。</p>
+</li>
+</ul>
+<p>302原本定义是307的逻辑，但是主流实现是303的逻辑，为了明确定义，所以才新增了303和307两种状态码。因为历史原因现在主流实现仍然使用302来表达303的逻辑。</p>
+<ul>
+<li><p><strong>303 (See Other):</strong> 临时移动，后续请求还是使用旧地址，自动对GET&#x2F;POST&#x2F;PUT&#x2F;DELETE进行跳转，但是跳转时都会使用GET</p>
+</li>
+<li><p><strong>307 (Temporary Redirect):</strong> 临时移动，后续请求还是使用旧地址，只对GET自动跳转，不会自动对POST&#x2F;PUT&#x2F;DELETE进行跳转。</p>
+</li>
+</ul>
+<h4 id="40x-客户端错误"><a href="#40x-客户端错误" class="headerlink" title="40x 客户端错误"></a>40x 客户端错误</h4><ul>
+<li>400 Bad Request ： 发送的HTTP请求存在问题。比如请求参数不合法、请求方法错误。</li>
+<li>401 Unauthorized ： 未认证却请求需要认证之后才能访问的资源。</li>
+<li>403 Forbidden ：直接拒绝HTTP请求，不处理。一般用来针对非法请求。</li>
+<li>404 Not Found ： 你请求的资源未在服务端找到。比如你请求某个用户的信息，服务端并没有找到指定的用户。</li>
+<li>499: 这个不是标准的状态码。通常意味着客户端在服务器完成响应之前主动断开了连接。</li>
+</ul>
+<h4 id="50x-服务端错误"><a href="#50x-服务端错误" class="headerlink" title="50x 服务端错误"></a>50x 服务端错误</h4><ul>
+<li>500 Internal Server Error ： 服务端出问题了（通常是服务端出Bug了）。比如你服务端处理请求的时候突然抛出异常，但是异常并为在服务端被正确处理。</li>
+<li>502 Bad Gateway ：我们的网关将请求转发到服务端，但是服务端返回的却是一个错误的响应。</li>
+</ul>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E7%BD%91%E7%BB%9C">网络</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%8D%8F%E8%AE%AE">协议</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>Haskell 进阶类型 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=Haskell,函数式编程,类型系统>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">Haskell 进阶类型</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-06-04</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="Functor"><a href="#Functor" class="headerlink" title="Functor"></a>Functor</h3><ul>
+<li><p>typeclass的定义在模块<code>GHC.Base</code>中，但是在<code>Control.Functor</code>中导出Functor中的定义</p>
+</li>
+<li><p>Functor的实例f如果是容器，如<code>Maybe</code>、<code>[]</code>和<code>Either a</code>，那么<code>fmap</code>就是对容器中的各个值进行transfer，原值的类型是a，原容器的整体类型是f a，结果容器的类型是f b</p>
+</li>
+<li><p>如果实例f是<code>(-&gt;)l</code>，那么代表函数之间的连接，返回值的类型是a，函数的类型是f a，结果函数的类型是f b</p>
+</li>
+<li><p>一个Functor 的 instance 是一个&#x3D;&#x3D;单参数类型构造子&#x3D;&#x3D;，它拥有”将所有 instance a 类型的函数映射到另一个类型 instance b的能力-fmap，而其中<code>a-&gt;b</code>的转换是由fmap的第一个参数完成的”（传统的值就是无参函数）。</p>
+</li>
+<li><p>然而在范畴论里，<code>fmap</code>这个函数才是<code>Functor</code>（不过它得满足两个条件,id和组合不变）</p>
+</li>
+<li><p>可以将fmap理解为接受一个function<code>a -&gt; b</code>返回一个function<code>f a -&gt; f b</code>（这个动作叫做lifting），这个新的function接受一个基于a的functor（functor over a）返回另外的一个基于b的functor（functor over b）</p>
+</li>
+<li><p>另一个形象但可能不准确的理解是：接受一个<code>a-&gt;b</code>的函数<code>f</code>，然后接受一个能够生产（并不是返回）a类型的函数<code>f1</code>，返回一个能够生产b类型的函数<code>f2</code>，转换工作由<code>f</code>执行。</p>
+</li>
+<li><p>在Prelude中定义了<code>&lt;$&gt; = fmap</code></p>
+</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- f的kind是* -&gt; *</span></span>
+<span class="line"><span style="color: #C678DD">class</span><span style="color: #ABB2BF">  </span><span style="color: #D19A66">Functor</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF">  </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- fmap (*3) (+2) $ 4 == 18, (Num a) =&gt; (a -&gt; a) -&gt; ( ((-&gt;) a) a) -&gt; ( ((-&gt;) a) a), f是(-&gt;)a,a和b都是a</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- fmap show (+2) $ 4 == &quot;6&quot;, (Num a,String b) =&gt; (a -&gt; b) -&gt; ( ((-&gt;)a) a) -&gt; ( ((-&gt;)a) b ),f是(-&gt;)a，a是a，b是String</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- fmap (+) (Just 5) == Just (+5), (Num a) =&gt; (a-&gt;(a-&gt;a)) -&gt; (Maybe a) -&gt; (Maybe (a-&gt;a)),f是Maybe,a是a,b是(a-&gt;a)</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">fmap</span><span style="color: #ABB2BF">        :: (</span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF">) -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Replace all locations in the input with the same value.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- const x _ = x :: a -&gt; b -&gt; a，接受一个a，返回一个函数f，不论传递什么参数都返回a（constant）</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">(&lt;$)</span><span style="color: #ABB2BF">        :: </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- 传递的第一个参数就是那个constant，之后返回的函数f作为fmap中的低维度transform</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- 也就是说对于随后传入fmap的 f a，内的a通过transform后都将是同一个constant（即&lt;$的第一个参数）</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #61AFEF">&lt;$</span><span style="color: #ABB2BF">)        =  fmap . const</span></span></code></pre></div></div></figure>
+
+<p>实例：</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- Barry :: (* -&gt; *) -&gt; * -&gt; * -&gt; *</span></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Barry</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">t</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">k</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">p</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Barry</span><span style="color: #ABB2BF"> { </span><span style="color: #E06C75">yabba</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">p</span><span style="color: #ABB2BF">, </span><span style="color: #E06C75">dabba</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">t</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">k</span><span style="color: #ABB2BF"> }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">instance</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Functor</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Barry</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    fmap f (</span><span style="color: #D19A66">Barry</span><span style="color: #ABB2BF"> {</span><span style="color: #E06C75">yabba</span><span style="color: #ABB2BF"> = x, </span><span style="color: #E06C75">dabba</span><span style="color: #ABB2BF"> = y}) = </span><span style="color: #D19A66">Barry</span><span style="color: #ABB2BF"> {</span><span style="color: #E06C75">yabba</span><span style="color: #ABB2BF"> = f x, </span><span style="color: #E06C75">dabba</span><span style="color: #ABB2BF"> = y}</span></span></code></pre></div></div></figure>
+
+<p>IO 是Functor 的instance：</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #ABB2BF">reversedStr &lt;- fmap reverse getLine</span></span></code></pre></div></div></figure>
+
+<h3 id="Applicative"><a href="#Applicative" class="headerlink" title="Applicative"></a>Applicative</h3><ul>
+<li>定义在模块<code>GHC.Base</code>中，但是在<code>Control.Applicative</code>中导出Applicative中的定义</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">class</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Functor</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> =&gt; </span><span style="color: #D19A66">Applicative</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    {-# </span><span style="color: #C678DD">MINIMAL</span><span style="color: #ABB2BF"> pure, ((&lt;*&gt;) | liftA2) #-}</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Lift a value.</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pure</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Sequential application.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- 当f是单参函数类型构造子时，如f :: (-&gt;) x，那么：x -&gt; (a -&gt; b) -&gt; (x -&gt; a) -&gt; (x -&gt; b)</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">(&lt;*&gt;)</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> (</span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF">) -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- 从liftA2的定义来看：id对应于liftA2的f，所以`id`在这里是a -&gt; (b -&gt; c)`，所以`a 就是 b-&gt;c`，所以`id`是`(b -&gt; c) -&gt; (b -&gt; c)`，所以`liftA2 id :: f (b -&gt; c) -&gt; f b -&gt; f c`</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- 作用是，在高维度上对值进行笛卡尔积式的transform（左值迭代一次，右值是重复迭代的），低维度是指`(a-&gt;b)-&gt;a-&gt;b`</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- (\x-&gt;id) &lt;*&gt; (*4) $ 5 == 20</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- [(*4),(+2)] &lt;*&gt; [1,2,3] == [4*1,4*2,4*3,2+1,2+2,2+3]</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #61AFEF">&lt;*&gt;</span><span style="color: #ABB2BF">) = liftA2 id</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Lift a binary function to actions.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- 看类型并且结合Functor就可以很好理解</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- 接受一个f用于computate，返回一个在高维度的笛卡尔积式的computation（左值迭代一次，右值是重复迭代的）</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">liftA2</span><span style="color: #ABB2BF"> :: (</span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">c</span><span style="color: #ABB2BF">) -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">c</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- fmap f中的f被看成了a-&gt;(b-&gt;c), fmap f x :: f (b-&gt;c)，加上&lt;*&gt;后就变成了f b -&gt; f c</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- liftA2 (\x y -&gt; (x,y)) &quot;abc&quot; [3,4,5]</span></span>
+<span class="line"><span style="color: #ABB2BF">    liftA2 f x = (</span><span style="color: #61AFEF">&lt;*&gt;</span><span style="color: #ABB2BF">) (fmap f x) </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Sequence actions, discarding the value of the first argument.</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- 同样进行迭代，但是保留右值</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- (\x-&gt;id) *&gt; (*4) $ 5 == 20, 因为(id &lt;$ a1) == f id</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">(*&gt;)</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"><span style="color: #ABB2BF">    a1 *&gt; a2 = (id &lt;$ a1) &lt;*&gt; a2</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- 下面居然是上面*&gt;的注释</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- This is essentially the same as liftA2 (flip const), but if the</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- Functor instance has an optimized (&lt;$), it may be better to use</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- that instead. Before liftA2 became a method, this definition</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- was strictly better, but now it depends on the functor. For a</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- functor supporting a sharing-enhancing (&lt;$), this definition</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- may reduce allocation by preventing a1 from ever being fully</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- realized. In an implementation with a boring (&lt;$) but an optimizing</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #7F848E; font-style: italic">-- liftA2, it would likely be better to define (*&gt;) using liftA2.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Sequence actions, discarding the value of the second argument.</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">(&lt;*)</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">f</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #61AFEF">&lt;*</span><span style="color: #ABB2BF">) = liftA2 const</span></span></code></pre></div></div></figure>
+
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- 这个liftA可以用于fmap，如果某个类型构造子是Applicative的实例的话，为了不重复实现fmap和(liftA2|&lt;*&gt;)，就可以使用fmp=liftA作为fmap的实现</span></span>
+<span class="line"><span style="color: #ABB2BF">liftA f a = pure f &lt;*&gt; a</span></span></code></pre></div></div></figure>
+
+<h3 id="Monad"><a href="#Monad" class="headerlink" title="Monad"></a>Monad</h3><p>这个类型的作用是<code>描述</code>一些操作（<strong>仅描述不执行</strong>），它能打包一些<code>操作</code>并记录这些<code>操作</code>的先后<code>顺序</code>以及<code>参数依赖</code>关系。由于<code>&gt;&gt;=、&gt;&gt;、return</code>只是在打包操作，它们的执行并不会执行内部被打包的操作，所以它们仍然是纯的。就像<code>f a b = (a, b)</code>一样，即使<code>a</code>、<code>b</code>是一个有副作用的函数(<code>Haskell</code>里貌似无法定义有副作用的函数)，<code>f</code>仍然是一个纯的函数，因为<code>f</code>的执行并不会导致<code>a</code>、<code>b</code>的执行。</p>
+<p>使用<code>&gt;&gt;=</code>打包时需要一个<code>Monad a</code>类型的<code>包</code>代表<code>前操作</code>，然后需要一个<code>a -&gt; Monad b</code>类型的函数作为<code>后操作</code>(这个操作是依赖于前操作的所以类型也不同，但具体的操作内容还是在<code>Monad b</code>中)，它使用<code>前操作</code>的最后结果作为参数并返回一个绑定了入参后的<code>后操作</code>的描述值<code>Monad b</code>。<code>Monad a</code>与<code>a -&gt; Monad b</code>打包后返回的也是<code>Monad b</code>类型，不过与后操作的描述值不同的是，这个描述值内部<code>描述</code>的操作是先执行<code>前操作</code>后执行<code>后操作</code>的操作。</p>
+<p><code>&gt;&gt;</code>与<code>&gt;&gt;=</code>仅有一点不同，它代表<code>后操作</code>(<code>Monad b</code>，不再需要入参了)并不需要<code>前操作</code>的返回结果作为参数。</p>
+<p><code>return</code>指的是将一个值打包成一个<code>包</code>，这个<code>包</code>描述的操作只是返回这个值。</p>
+<p>ghc有解语法糖的命令：<code>ghc -c Foo.hs -ddump-ds</code></p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #ABB2BF">main = </span><span style="color: #C678DD">do</span><span style="color: #ABB2BF"> putStrLn </span><span style="color: #98C379">&quot;What is your name?&quot;</span></span>
+<span class="line"><span style="color: #ABB2BF">          a &lt;- getLine</span></span>
+<span class="line"><span style="color: #ABB2BF">          putStrLn </span><span style="color: #98C379">&quot;How old are you?&quot;</span></span>
+<span class="line"><span style="color: #ABB2BF">          b &lt;- getLine</span></span>
+<span class="line"><span style="color: #ABB2BF">          print (a,b)</span></span>
+<span class="line"><span style="color: #ABB2BF">解语法糖后：</span></span>
+<span class="line"><span style="color: #ABB2BF">main = putStrLn </span><span style="color: #98C379">&quot;What is your name?&quot;</span></span>
+<span class="line"><span style="color: #ABB2BF">       &gt;&gt; getLine</span></span>
+<span class="line"><span style="color: #ABB2BF">       &gt;&gt;= \a -&gt; putStrLn </span><span style="color: #98C379">&quot;How old are you?&quot;</span></span>
+<span class="line"><span style="color: #ABB2BF">       &gt;&gt; getLine</span></span>
+<span class="line"><span style="color: #ABB2BF">       &gt;&gt;= \b -&gt; print (a,b)</span></span>
+<span class="line"><span style="color: #ABB2BF">注意：在lambda那节已经讲到，若无括号干预`\a -&gt; `总是尽量延伸到最后的。上面的代码等价于加上括号后的：</span></span>
+<span class="line"><span style="color: #ABB2BF">main = (putStrLn </span><span style="color: #98C379">&quot;What is your name?&quot;</span><span style="color: #ABB2BF"> &gt;&gt; getLine) &gt;&gt;= (\a -&gt; (putStrLn </span><span style="color: #98C379">&quot;How old are you?&quot;</span><span style="color: #ABB2BF"> &gt;&gt; getLine) &gt;&gt;= \b -&gt; print (a,b))</span></span></code></pre></div></div></figure>
+
+
+
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #61AFEF">join</span><span style="color: #ABB2BF">              :: (</span><span style="color: #D19A66">Monad</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> (</span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) -&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span>
+<span class="line"><span style="color: #ABB2BF">join x            =  x &gt;&gt;= id</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">{- | The &#39;Monad&#39; class defines the basic operations over a /monad/,</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">a concept from a branch of mathematics known as /category theory/.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">From the perspective of a Haskell programmer, however, it is best to</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">think of a monad as an /abstract datatype/ of actions.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">Haskell&#39;s @do@ expressions provide a convenient syntax for writing</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">monadic expressions.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">Instances of &#39;Monad&#39; should satisfy the following laws:</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">* @&#39;return&#39; a &#39;&gt;&gt;=&#39; k  =  k a@</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">* @m &#39;&gt;&gt;=&#39; &#39;return&#39;  =  m@</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">* @m &#39;&gt;&gt;=&#39; (\\x -&gt; k x &#39;&gt;&gt;=&#39; h)  =  (m &#39;&gt;&gt;=&#39; k) &#39;&gt;&gt;=&#39; h@</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">Furthermore, the &#39;Monad&#39; and &#39;Applicative&#39; operations should relate as follows:</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">* @&#39;pure&#39; = &#39;return&#39;@</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">* @(&#39;&lt;*&gt;&#39;) = &#39;ap&#39;@</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">The above laws imply:</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">* @&#39;fmap&#39; f xs  =  xs &#39;&gt;&gt;=&#39; &#39;return&#39; . f@</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">* @(&#39;&gt;&gt;&#39;) = (&#39;*&gt;&#39;)@</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">and that &#39;pure&#39; and (&#39;&lt;*&gt;&#39;) satisfy the applicative functor laws.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">The instances of &#39;Monad&#39; for lists, &#39;Data.Maybe.Maybe&#39; and &#39;System.IO.IO&#39;</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">defined in the &quot;Prelude&quot; satisfy these laws.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-}</span></span>
+<span class="line"><span style="color: #C678DD">class</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Applicative</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> =&gt; </span><span style="color: #D19A66">Monad</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Sequentially compose two actions, passing any value produced</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- by the first as an argument to the second.</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">(&gt;&gt;=)</span><span style="color: #ABB2BF">       :: </span><span style="color: #C678DD">forall</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF">. </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; (</span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF">) -&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Sequentially compose two actions, discarding any value produced</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- by the first, like sequencing operators (such as the semicolon)</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- in imperative languages.</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">(&gt;&gt;)</span><span style="color: #ABB2BF">        :: </span><span style="color: #C678DD">forall</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF">. </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"><span style="color: #ABB2BF">    m &gt;&gt; k = m &gt;&gt;= \_ -&gt; k </span><span style="color: #7F848E; font-style: italic">-- See Note [Recursive bindings for Applicative/Monad]</span></span>
+<span class="line"><span style="color: #ABB2BF">    {-# </span><span style="color: #C678DD">INLINE</span><span style="color: #ABB2BF"> (&gt;&gt;) #-}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Inject a value into the monadic type.</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">return</span><span style="color: #ABB2BF">      :: </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span>
+<span class="line"><span style="color: #ABB2BF">    return      = pure</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- | Fail with a message.  This operation is not part of the</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- mathematical definition of a monad, but is invoked on pattern-match</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- failure in a @do@ expression.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    --</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- As part of the MonadFail proposal (MFP), this function is moved</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- to its own class &#39;MonadFail&#39; (see &quot;Control.Monad.Fail&quot; for more</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- details). The definition here will be removed in a future</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    -- release.</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">fail</span><span style="color: #ABB2BF">        :: </span><span style="color: #D19A66">String</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span>
+<span class="line"><span style="color: #ABB2BF">    fail s      = errorWithoutStackTrace s</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">{- Note [Recursive bindings for Applicative/Monad]</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">The original Applicative/Monad proposal stated that after</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">implementation, the designated implementation of (&gt;&gt;) would become</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">  (&gt;&gt;) :: forall a b. m a -&gt; m b -&gt; m b</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">  (&gt;&gt;) = (*&gt;)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">by default. You might be inclined to change this to reflect the stated</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">proposal, but you really shouldn&#39;t! Why? Because people tend to define</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">such instances the /other/ way around: in particular, it is perfectly</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">legitimate to define an instance of Applicative (*&gt;) in terms of (&gt;&gt;),</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">which would lead to an infinite loop for the default implementation of</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">Monad! And people do this in the wild.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">This turned into a nasty bug that was tricky to track down, and rather</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">than eliminate it everywhere upstream, it&#39;s easier to just retain the</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">original default.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-}</span></span></code></pre></div></div></figure>
+
+<h3 id="IO"><a href="#IO" class="headerlink" title="IO"></a>IO</h3><p>通用描述请看<code>Monad</code></p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #ABB2BF">:i </span><span style="color: #D19A66">IO</span></span>
+<span class="line"><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> a :: </span><span style="color: #C678DD">*</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">*</span></span>
+<span class="line"><span style="color: #C678DD">newtype</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">GHC</span><span style="color: #C678DD">.</span><span style="color: #E5C07B">Types.</span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> (</span><span style="color: #E5C07B">GHC.Prim.</span><span style="color: #D19A66">State</span><span style="color: #ABB2BF"># </span><span style="color: #E5C07B">GHC.Prim.</span><span style="color: #D19A66">RealWorld</span><span style="color: #ABB2BF"> -&gt; (# </span><span style="color: #E5C07B">GHC.Prim.</span><span style="color: #D19A66">State</span><span style="color: #ABB2BF"># </span><span style="color: #E5C07B">GHC.Prim.</span><span style="color: #D19A66">RealWorld</span><span style="color: #ABB2BF">, </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> #))</span></span></code></pre></div></div></figure>
+
+<p>简化: <code>newtype IO a = IO (RealWorld -&gt; (RealWorld, a))</code>，也就是说<code>IO</code>是一个<code>valueConstructor</code>，并且通过<code>IO (\w -&gt; (w, a))</code>可以构造一个<code>IO a</code>类型的值。<br>但是由于编程者无法在<code>Haskell</code>中构造<code>RealWorld</code>类型的值，函数<code>(\w -&gt; (w, a)</code>在自己的代码中无法直接调用。保证了<code>IO</code>操作不会由用户编写的某个函数启动，所有用户编写的代码仍然是纯的。（这就是为什么必须限制为这个类型而不是<code>()</code>或者别的什么类型）</p>
+<p><code>IO</code>是<code>Applicative</code>与<code>Monad</code>的<code>instance</code>，它的函数实现如下：</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- (# s, x #)指的是unboxed tuples</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 是Applicative的return的实现</span></span>
+<span class="line"><span style="color: #61AFEF">returnIO</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span>
+<span class="line"><span style="color: #ABB2BF">returnIO x = </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> (\ s -&gt; (# s, x #))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 是Monad的&gt;&gt;=的实现</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 执行\ s的逻辑：先执行a得到(RealWorld值1, 结果1)，然后将结果1作为参数执行`a -&gt; IO b`得到结果`IO b值1`</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 然后取出`b值1`，并将`RealWorld值1`传入执行它得到(RealWorld值2, 结果2)</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 可以看到(\s -&gt; xxx)最後返回的值就是中间的 IO b操作后返回的值，所以(\s -&gt; xxx)的類型与b是一致的，所以滿足bindIO類型中最後的( -&gt; IO b)</span></span>
+<span class="line"><span style="color: #61AFEF">bindIO</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; (</span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF">) -&gt; </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"><span style="color: #ABB2BF">bindIO (</span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> m) k = </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> (\ s -&gt; </span><span style="color: #C678DD">case</span><span style="color: #ABB2BF"> m s </span><span style="color: #C678DD">of</span><span style="color: #ABB2BF"> (# new_s, a #) -&gt; unIO (k a) new_s)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 是Monad的&gt;&gt;的实现</span></span>
+<span class="line"><span style="color: #61AFEF">thenIO</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"><span style="color: #ABB2BF">thenIO (</span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> m) k = </span><span style="color: #D19A66">IO</span><span style="color: #ABB2BF"> (\ s -&gt; </span><span style="color: #C678DD">case</span><span style="color: #ABB2BF"> m s </span><span style="color: #C678DD">of</span><span style="color: #ABB2BF"> (# new_s, _ #) -&gt; unIO k new_s)</span></span></code></pre></div></div></figure>
+
+
+<p>模拟测试：</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- 模拟RealWorld</span></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">MWorld</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">MWorld</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 模拟IO</span></span>
+<span class="line"><span style="color: #C678DD">newtype</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">MWorld</span><span style="color: #ABB2BF"> -&gt; (</span><span style="color: #D19A66">MWorld</span><span style="color: #ABB2BF">, </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 模式匹配一个完整的部分得用括号</span></span>
+<span class="line"><span style="color: #ABB2BF">unDB (</span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> a) = a</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 模拟&gt;&gt;=</span></span>
+<span class="line"><span style="color: #61AFEF">(&gt;=&gt;)</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; (</span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF">) -&gt; </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"><span style="color: #ABB2BF">(</span><span style="color: #61AFEF">&gt;=&gt;</span><span style="color: #ABB2BF">) (</span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> preOpt) postFunc = </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> (\world -&gt; </span><span style="color: #C678DD">case</span><span style="color: #ABB2BF"> preOpt world </span><span style="color: #C678DD">of</span><span style="color: #ABB2BF"> (new_world, preResult) -&gt; unDB(postFunc preResult) new_world)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 模拟&gt;&gt;</span></span>
+<span class="line"><span style="color: #61AFEF">(&gt;=&gt;&gt;)</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">b</span></span>
+<span class="line"><span style="color: #ABB2BF">(</span><span style="color: #61AFEF">&gt;=&gt;&gt;</span><span style="color: #ABB2BF">) (</span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> preOpt) (</span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> postOpt) = </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> (\world -&gt; </span><span style="color: #C678DD">case</span><span style="color: #ABB2BF"> preOpt world </span><span style="color: #C678DD">of</span><span style="color: #ABB2BF"> (new_world, preResult) -&gt; postOpt new_world)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 模拟return</span></span>
+<span class="line"><span style="color: #61AFEF">returnDB</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span>
+<span class="line"><span style="color: #ABB2BF">returnDB a = </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> (\w -&gt; (w, a))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 前操作，结果是：&#39;a&#39;</span></span>
+<span class="line"><span style="color: #61AFEF">y</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Char</span><span style="color: #ABB2BF">; y = </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> (\w -&gt; (w, </span><span style="color: #98C379">&#39;a&#39;</span><span style="color: #ABB2BF">))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 后操作（(\c -&gt; DB (\w -&gt; (w, fromEnum c))），结果是：fromEnum 一个Int入参</span></span>
+<span class="line"><span style="color: #61AFEF">toIntVal</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Int</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">toIntVal = (\c -&gt; </span><span style="color: #D19A66">DB</span><span style="color: #ABB2BF"> (\w -&gt; (w, fromEnum c))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 合并前后操作</span></span>
+<span class="line"><span style="color: #ABB2BF">z = y &gt;=&gt; toIntVal</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 触发整个链条的操作</span></span>
+<span class="line"><span style="color: #ABB2BF">unDB z </span><span style="color: #D19A66">MWorld</span></span>
+<span class="line"><span style="color: #ABB2BF">结果是：(</span><span style="color: #D19A66">MWorld</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">97</span><span style="color: #ABB2BF">)</span></span></code></pre></div></div></figure>
+
+<h3 id="Arrow"><a href="#Arrow" class="headerlink" title="Arrow"></a>Arrow</h3><p><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/16155336/what-can-arrows-do-that-monads-cant">https://stackoverflow.com/questions/16155336/what-can-arrows-do-that-monads-cant</a> Luis Casillas的回答</p>
+<p><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/24668313/arrows-are-exactly-equivalent-to-applicative-functors">https://stackoverflow.com/questions/24668313/arrows-are-exactly-equivalent-to-applicative-functors</a> danidiaz的回答与回答中Petr的评论</p>
+<p>大概理解为：applicative和monad的功能arrow都可以模拟，并且它与applicative一样是静态的，但是使用起来更加复杂。至于arrow有没有applicative和monad都没有的能力，暂时不清楚。</p>
+<h3 id="MonadTrans"><a href="#MonadTrans" class="headerlink" title="MonadTrans"></a>MonadTrans</h3><p><a target="_blank" rel="noopener" href="https://hackage.haskell.org/package/transformers-0.6.0.2/docs/Control-Monad-Trans-Class.html#v:lift">https://hackage.haskell.org/package/transformers-0.6.0.2/docs/Control-Monad-Trans-Class.html#v:lift</a></p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">class</span><span style="color: #ABB2BF"> (</span><span style="color: #C678DD">forall</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF">. </span><span style="color: #D19A66">Monad</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> =&gt; </span><span style="color: #D19A66">Monad</span><span style="color: #ABB2BF"> (</span><span style="color: #C678DD">t</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF">)) =&gt; </span><span style="color: #D19A66">MonadTrans</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">t</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">where</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">lift</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">Monad</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> =&gt; </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">t</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span></code></pre></div></div></figure>
+
+<p>that for all monads (m, pure, (&gt;&gt;&#x3D;)), t m forms a monad and,</p>
+<ul>
+<li><code>lift . pure ≡ pure</code></li>
+<li>For all <code>mx :: m a</code>, <code>k :: a -&gt; m b</code> <code>lift (mx &gt;&gt;= k) ≡ lift mx &gt;&gt;= (lift . k)</code></li>
+</ul>
+<h3 id="Reader"><a href="#Reader" class="headerlink" title="Reader"></a>Reader</h3><p><a target="_blank" rel="noopener" href="https://hackage.haskell.org/package/transformers-0.6.0.2/docs/Control-Monad-Trans-Reader.html#t:Reader">https://hackage.haskell.org/package/transformers-0.6.0.2/docs/Control-Monad-Trans-Reader.html#t:Reader</a></p>
+<h3 id="Void"><a href="#Void" class="headerlink" title="Void"></a>Void</h3><p><a target="_blank" rel="noopener" href="https://www.fpcomplete.com/blog/2017/07/to-void-or-to-void/">https://www.fpcomplete.com/blog/2017/07/to-void-or-to-void/</a></p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Haskell">Haskell</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B">函数式编程</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E7%B1%BB%E5%9E%8B%E7%B3%BB%E7%BB%9F">类型系统</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

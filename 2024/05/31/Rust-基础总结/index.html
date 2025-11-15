@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>Rust 基础总结 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=编程语言,Rust>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">Rust 基础总结</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-05-31</span> <br>
+  </div>
+  <div class="post-content">
+    <blockquote>
+<p>参考资料：<br><a target="_blank" rel="noopener" href="https://course.rs/">Rust语言圣经(Rust Course)</a><br><a target="_blank" rel="noopener" href="https://doc.rust-lang.org/nomicon">The Rustonomicon</a><br><a target="_blank" rel="noopener" href="https://doc.rust-lang.org/reference">The Rust Reference</a></p>
+</blockquote>
+<h3 id="变量"><a href="#变量" class="headerlink" title="变量"></a>变量</h3><p><strong>所有权：</strong></p>
+<ul>
+<li>变量可以是某个值的所有者，两个变量不能同时（同时指在生命周期重叠的地方）是同一个值的所有者，但可以通过赋值将所有权转移到别的变量（叫做<strong>移动</strong>），此时原变量失去了所有权；</li>
+<li>拥有某个值的所有权的变量在生命周期结束的时候会回收这个值；</li>
+<li>实现了 Copy triat 的类型无需所有权转移，在赋值时会进行 数据拷贝</li>
+<li>复合类型的所有权跟字段的所有权是独立的，某些字段的所有权被移动后(叫做部分移动partial move)，这个复合类型的其他字段还是能使用的，数组不支持部分移动。</li>
+<li>当变量部分移动所有权后，不能将这个变量的所有权移动给别的变量，也不能创建引用；</li>
+</ul>
+<p><strong>引用：</strong></p>
+<ul>
+<li>变量还可以是某个值的不可变引用或可变引用，通过它的所有者可以创建出它的引用，创建引用和使用引用(使用包含该引用的字段的struct也算)叫做<strong>借用</strong>；</li>
+<li>当变量被移动或部分移动所有权后不能再通过这个变量创建引用；</li>
+<li>某个值可以同时有多个不可变引用，而可变引用同时最多只能有一个，并且不能同时存在同一个值的不可变引用和可变引用；可以通过<code>&amp;*</code>将可变引用转换为不可变引用，此时可变引用在这个不可变引用的生命周期内无法使用。</li>
+<li>在引用的生命周期内不能对这个值的所有权进行移动；</li>
+<li>引用的生命周期必须在所有者的生命周期的范围内；</li>
+<li>当对引用进行解引用时（使用星号前缀）不能获取到值的所有权，只能进行值的拷贝（需要该类型实现 Copy），同样不能通过复合类型的引用获取字段的所有权。</li>
+<li>结构体中的引用字段必须加上生命周期</li>
+</ul>
+<p><strong>生命周期：</strong></p>
+<ul>
+<li><p>每个变量都有它的生命周期（对于拥有所有权的变量：声明处~最后出现的地方，对于引用变量：如果是字符串字面值那么是static，否则需要根据生命周期标注判断(在一些情况下编译器会推断出生命周期标注)），这里的生命周期标注只是对变量的实际生命周期之间的关系的描述，rust编译器通过这些标注所推断出来的生命周期不完全等于程序运行时的实际生命周期（变量作用域），它的范围可能比实际的生命周期大。</p>
+</li>
+<li><p>生命周期省略规则：<a target="_blank" rel="noopener" href="https://doc.rust-lang.org/nomicon/lifetime-elision.html#lifetime-elision">https://doc.rust-lang.org/nomicon/lifetime-elision.html#lifetime-elision</a></p>
+</li>
+<li><p>通过引用创建新引用时，新引用的生命周期不能大于原引用的生命周期。</p>
+</li>
+<li><p>函数只有一个引用参数，那出参引用的生命周期不能超过这个参数的生命周期</p>
+</li>
+<li><p>可以通过在<code>&amp;</code>后面添加生命周期名称来指定变量的生命周期之间的关系</p>
+  <figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// 这里代表返回值的生命周期在参数的生命周期的重叠部分内</span></span>
+<span class="line"><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">longest</span><span style="color: #ABB2BF">&lt;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF">&gt;(</span><span style="color: #E06C75">x</span><span style="color: #ABB2BF">: &amp;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">str</span><span style="color: #ABB2BF">, </span><span style="color: #E06C75">y</span><span style="color: #ABB2BF">: &amp;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">str</span><span style="color: #ABB2BF">) -&gt; &amp;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">str</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">if</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">x</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">len</span><span style="color: #ABB2BF">() &gt; </span><span style="color: #E06C75">y</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">len</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E06C75">x</span></span>
+<span class="line"><span style="color: #ABB2BF">    } </span><span style="color: #C678DD">else</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E06C75">y</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 这里代表某个S值的所有者的生命周期在x,y的重叠部分内</span></span>
+<span class="line"><span style="color: #C678DD">struct</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">S</span><span style="color: #ABB2BF">&lt;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF">&gt; {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E06C75">x</span><span style="color: #ABB2BF">: &amp;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">str</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E06C75">y</span><span style="color: #ABB2BF">: &amp;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">str</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure></li>
+<li><p>rust的生命周期判别系统不够聪明的情况：</p>
+  <figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #ABB2BF">#[derive(</span><span style="color: #E5C07B">Debug</span><span style="color: #ABB2BF">)]</span></span>
+<span class="line"><span style="color: #C678DD">struct</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Foo</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">impl</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Foo</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    // 这里rust要求出参的生命周期在入参生命周期内，所以即使入参的实际生命周期是这个函数体内，但是rust会认为入参的生命周期跟出参一致</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">mutate_and_share</span><span style="color: #ABB2BF">(&amp;</span><span style="color: #C678DD">mut</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">self</span><span style="color: #ABB2BF">) -&gt; &amp;</span><span style="color: #E5C07B">Self</span><span style="color: #ABB2BF"> { &amp;*</span><span style="color: #E5C07B">self</span><span style="color: #ABB2BF"> }</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">share</span><span style="color: #ABB2BF">(&amp;</span><span style="color: #E5C07B">self</span><span style="color: #ABB2BF">) {}</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">main</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">let</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">mut</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">foo</span><span style="color: #ABB2BF"> </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Foo</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">let</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">loan</span><span style="color: #ABB2BF"> </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">foo</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">mutate_and_share</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E06C75">foo</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">share</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">println!</span><span style="color: #ABB2BF">(</span><span style="color: #98C379">&quot;{:?}&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #E06C75">loan</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">get_default</span><span style="color: #ABB2BF">&lt;&#39;</span><span style="color: #E5C07B">m</span><span style="color: #ABB2BF">, </span><span style="color: #E5C07B">K</span><span style="color: #ABB2BF">, </span><span style="color: #E5C07B">V</span><span style="color: #ABB2BF">&gt;(</span><span style="color: #E06C75">map</span><span style="color: #ABB2BF">: &amp;&#39;</span><span style="color: #E5C07B">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">mut</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">HashMap</span><span style="color: #ABB2BF">&lt;</span><span style="color: #E5C07B">K</span><span style="color: #ABB2BF">, </span><span style="color: #E5C07B">V</span><span style="color: #ABB2BF">&gt;, </span><span style="color: #E06C75">key</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">K</span><span style="color: #ABB2BF">) -&gt; &amp;&#39;</span><span style="color: #E5C07B">m</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">mut</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">V</span></span>
+<span class="line"><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E5C07B">K</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">Clone</span><span style="color: #ABB2BF"> + </span><span style="color: #E5C07B">Eq</span><span style="color: #ABB2BF"> + </span><span style="color: #E5C07B">Hash</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E5C07B">V</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">Default</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">{</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    // 这里对map进行了mut 借用, 返回了一个Option&lt;&amp;mut V&gt;，同样这里map的mut借用需要大于返回值的生命周期。</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">match</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">map</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">get_mut</span><span style="color: #ABB2BF">(&amp;</span><span style="color: #E06C75">key</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">Some</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">value</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E06C75">value</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">None</span><span style="color: #ABB2BF"> =&gt; {</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">            // 这里面Option&lt;&amp;mut V&gt; 已经不在生命周期了，但是rust仍然认为它还存活，所以map的生命周期也被扩展到这里</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">            // 从而判断出出现多次mut借用</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #E06C75">map</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">insert</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">key</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">clone</span><span style="color: #ABB2BF">(), </span><span style="color: #E5C07B">V</span><span style="color: #ABB2BF">::</span><span style="color: #61AFEF">default</span><span style="color: #ABB2BF">());</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #E06C75">map</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">get_mut</span><span style="color: #ABB2BF">(&amp;</span><span style="color: #E06C75">key</span><span style="color: #ABB2BF">).</span><span style="color: #61AFEF">unwrap</span><span style="color: #ABB2BF">()</span></span>
+<span class="line"><span style="color: #ABB2BF">        }</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+</li>
+<li><p>无界(unbound)生命周期，这个引用是凭空产生的，所以这里的<code>&#39;a</code>可以是任意生命周期大小，也可以是<code>&#39;static</code></p>
+  <figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">f</span><span style="color: #ABB2BF">&lt;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF">, </span><span style="color: #E5C07B">T</span><span style="color: #ABB2BF">&gt;(</span><span style="color: #E06C75">x</span><span style="color: #ABB2BF">: *</span><span style="color: #C678DD">const</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">T</span><span style="color: #ABB2BF">) -&gt; &amp;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">T</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">unsafe</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">        &amp;*</span><span style="color: #E06C75">x</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure></li>
+<li><p>生命周期约束, <code>&lt;&#39;a: &#39;b, &#39;b&gt;</code>，中的<code>&#39;a: &#39;b</code>代表<code>&#39;a 包含 &#39;b</code>；<code>&lt;&#39;a, T: &#39;a&gt;</code>代表<code>T</code>的生命周期包含<code>&#39;a</code></p>
+  <figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// 这种形式编译器可以自动推断，不用手动标注</span></span>
+<span class="line"><span style="color: #C678DD">struct</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Ref</span><span style="color: #ABB2BF">&lt;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF">, </span><span style="color: #E5C07B">T</span><span style="color: #ABB2BF">: &#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF">&gt; {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E06C75">r</span><span style="color: #ABB2BF">: &amp;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">T</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"><span style="color: #C678DD">struct</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Ref</span><span style="color: #ABB2BF">&lt;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF">, </span><span style="color: #E5C07B">T</span><span style="color: #ABB2BF">&gt; {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E06C75">r</span><span style="color: #ABB2BF">: &amp;&#39;</span><span style="color: #E5C07B">a</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">T</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure></li>
+<li><p>另外说一句，在同一个函数内的局部变量，根据括号的匹配规则，两个局部变量的生命周期要么是完全分离的，要么是其中一个完全包含另一个，不存在交错的情况。（暂时举不出交错的情况）</p>
+</li>
+</ul>
+<p><strong>mut：</strong></p>
+<ul>
+<li>值的所有者是不可变的（类似 Java 的 final），声明变量时使用mut前缀可以声明可变所有者，struct 字段的可变性与struct所有者本身的可变性一致。</li>
+<li>可变引用只能通过可变所有者生成</li>
+</ul>
+<h3 id="Trait"><a href="#Trait" class="headerlink" title="Trait"></a>Trait</h3><p>the <code>!</code> in a trait means “does not implement”</p>
+<p>Deref：</p>
+<figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">pub</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">trait</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Deref</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Target</span><span style="color: #ABB2BF">: ?</span><span style="color: #E5C07B">Sized</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">deref</span><span style="color: #ABB2BF">(&amp;</span><span style="color: #E5C07B">self</span><span style="color: #ABB2BF">) -&gt; &amp;</span><span style="color: #E5C07B">Self</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B">Target</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>如果 <code>S</code> 实现了 <code>Deref</code>，<code>let s = S &#123;&#125;</code>，当执行 <code>*s</code> 时将执行 <code>*(s.deref())</code>，这里的替换不会递归进行只会替换一层。</li>
+</ul>
+<h3 id="错误处理"><a href="#错误处理" class="headerlink" title="错误处理"></a>错误处理</h3><p><strong>panic!</strong>:</p>
+<ul>
+<li>使用panic!会触发panic，此时可以触发<strong>进行栈展开等善后工作再终止</strong>(默认)或<strong>直接终止当前线程</strong>，在toml中配置<code>panic = &#39;abort&#39;</code>开启直接终止。</li>
+<li>当调用 panic! 宏时，它会<ul>
+<li>格式化 panic 信息，然后使用该信息作为参数，调用 std::panic::panic_any() 函数</li>
+<li>panic_any 会检查应用是否使用了 panic hook，如果使用了，该 hook 函数就会被调用（hook 是一个钩子函数，是外部代码设置的，用于在 panic 触发时，执行外部代码所需的功能）</li>
+<li>当 hook 函数返回后，当前的线程就开始进行栈展开：从 panic_any 开始，如果寄存器或者栈因为某些原因信息错乱了，那很可能该展开会发生异常，最终线程会直接停止，展开也无法继续进行</li>
+<li>展开的过程是一帧一帧的去回溯整个栈，每个帧的数据都会随之被丢弃，但是在展开过程中，你可能会遇到被用户标记为 catching 的帧（通过 std::panic::catch_unwind() 函数标记），此时用户提供的 catch 函数会被调用，展开也随之停止：当然，如果 catch 选择在内部调用 std::panic::resume_unwind() 函数，则展开还会继续。</li>
+<li>还有一种情况，在展开过程中，如果展开本身 panic 了，那展开线程会终止，展开也随之停止。</li>
+</ul>
+</li>
+</ul>
+<p>一旦线程展开被终止或者完成，最终的输出结果是取决于哪个线程 panic：对于 main 线程，操作系统提供的终止功能 core::intrinsics::abort() 会被调用，最终结束当前的 panic 进程；如果是其它子线程，那么子线程就会简单的终止，同时信息会在稍后通过 std::thread::join() 进行收集。</p>
+<p><strong>?、.?</strong>: </p>
+<p>使用<code>?</code>和<code>.?</code>要求函数返回类型为<code>Option</code>或者<code>Result</code>，下面都用<code>Result</code>演示。</p>
+<blockquote>
+<p>另外，main函数的返回值可以是std::process::Termination的任意实现，<code>!</code>和<code>Result</code>都实现了，所以如果需要在main中使用<code>?</code>，那么可以修改main的返回类型.</p>
+</blockquote>
+<p>可以通过<code>?</code>省略match, <code>a?</code>会翻译成</p>
+<figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">match</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">a</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">),</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<p>可以通过<code>?.</code>进行链式调用, <code>a?.b()?.c()?</code> 会翻译成</p>
+<figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">match</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">a</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #C678DD">match</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">b</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #C678DD">match</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">c</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">)    </span></span>
+<span class="line"><span style="color: #ABB2BF">        }</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #ABB2BF">    },</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<p>当函数返回<code>Result&lt;_, B&gt;</code>，并且<code>impl From&lt;A&gt; for B</code>，那么<code>Ok(a?)</code>会翻译成</p>
+<figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// a类型是Result&lt;_, A&gt;, 结果是</span></span>
+<span class="line"><span style="color: #C678DD">let</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">b</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">Result</span><span style="color: #ABB2BF">&lt;</span><span style="color: #E06C75">_</span><span style="color: #ABB2BF">, </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF">&gt; </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">match</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">a</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">),</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">e</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">into</span><span style="color: #ABB2BF">())</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 完整例子</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">struct</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">A</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">i32</span><span style="color: #ABB2BF">,</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">struct</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">i32</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">impl</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">From</span><span style="color: #ABB2BF">&lt;</span><span style="color: #E5C07B">A</span><span style="color: #ABB2BF">&gt; </span><span style="color: #C678DD">for</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">from</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">value</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">A</span><span style="color: #ABB2BF">) -&gt; </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF"> {</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">: </span><span style="color: #E06C75">value</span><span style="color: #ABB2BF">.v}</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">test</span><span style="color: #ABB2BF">() -&gt; </span><span style="color: #E5C07B">Result</span><span style="color: #ABB2BF">&lt;(), </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF">&gt; {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">let</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">a</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">Result</span><span style="color: #ABB2BF">&lt;(), </span><span style="color: #E5C07B">A</span><span style="color: #ABB2BF">&gt; </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Err</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">A</span><span style="color: #ABB2BF"> {</span><span style="color: #E06C75">v</span><span style="color: #ABB2BF">: </span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">});</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">let</span><span style="color: #ABB2BF"> </span><span style="color: #E06C75">b</span><span style="color: #ABB2BF">: </span><span style="color: #E5C07B">Result</span><span style="color: #ABB2BF">&lt;(), </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF">&gt; </span><span style="color: #56B6C2">=</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">Ok</span><span style="color: #ABB2BF">(</span><span style="color: #E06C75">a</span><span style="color: #ABB2BF">?);</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    // let b: Result&lt;(), B&gt; = match a {</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    //     Ok(v) =&gt; Ok(v.into()),</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    //     Err(e) =&gt; Err(e.into())</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">    // };</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #E06C75">b</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+<h3 id="包管理"><a href="#包管理" class="headerlink" title="包管理"></a>包管理</h3><figure class="shiki shell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #56B6C2">.</span></span>
+<span class="line"><span style="color: #61AFEF">├──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">Cargo.toml</span></span>
+<span class="line"><span style="color: #61AFEF">├──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">Cargo.lock</span></span>
+<span class="line"><span style="color: #61AFEF">├──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">src</span></span>
+<span class="line"><span style="color: #61AFEF">│</span><span style="color: #ABB2BF">   </span><span style="color: #98C379">├──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">main.rs</span></span>
+<span class="line"><span style="color: #61AFEF">│</span><span style="color: #ABB2BF">   </span><span style="color: #98C379">├──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">lib.rs</span></span>
+<span class="line"><span style="color: #61AFEF">│</span><span style="color: #ABB2BF">   </span><span style="color: #98C379">└──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">bin</span></span>
+<span class="line"><span style="color: #61AFEF">│</span><span style="color: #ABB2BF">       </span><span style="color: #98C379">└──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">main1.rs</span></span>
+<span class="line"><span style="color: #61AFEF">│</span><span style="color: #ABB2BF">       </span><span style="color: #98C379">└──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">main2.rs</span></span>
+<span class="line"><span style="color: #61AFEF">├──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">tests</span></span>
+<span class="line"><span style="color: #61AFEF">│</span><span style="color: #ABB2BF">   </span><span style="color: #98C379">└──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">some_integration_tests.rs</span></span>
+<span class="line"><span style="color: #61AFEF">├──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">benches</span></span>
+<span class="line"><span style="color: #61AFEF">│</span><span style="color: #ABB2BF">   </span><span style="color: #98C379">└──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">simple_bench.rs</span></span>
+<span class="line"><span style="color: #61AFEF">└──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">examples</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">└──</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">simple_example.rs</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>唯一库包：src&#x2F;lib.rs，crate 名称与 package 同名</li>
+<li>默认二进制包：src&#x2F;main.rs，编译后生成的可执行文件与 Package 同名</li>
+<li>其余二进制包：src&#x2F;bin&#x2F;main1.rs 和 src&#x2F;bin&#x2F;main2.rs，它们会分别生成一个文件同名的二进制可执行文件</li>
+<li>集成测试文件：tests 目录下</li>
+<li>基准性能测试 benchmark 文件：benches 目录下</li>
+<li>项目示例：examples 目录下</li>
+</ul>
+<p><strong>package</strong>:</p>
+<ul>
+<li>理解为一个项目，一个Cargo.toml表示一个package，可以通过这个文件定义package名称</li>
+</ul>
+<p><strong>crate</strong>:</p>
+<ul>
+<li>二进制包可以有多个，lib包只能有一个，二进制包不能被引用</li>
+<li>引用lib时使用lib的crate名称，引用当前crate时使用”crate”作为名称</li>
+</ul>
+<p><strong>module</strong>: </p>
+<p>可以有层次结构：</p>
+<figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> &lt;moduleName1&gt; {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> &lt;moduleName2&gt; {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<p>可以放在别的文件:</p>
+<figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// src/lib.rs</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 将会加载src/m.rs 或者 src/m/mod.rs（旧版本的用法）的内容作为一个mod m</span></span>
+<span class="line"><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> m;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// src/m/mod.rs，旧版本的用法</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 将会加载src/m/m1.rs作为mod m::m1</span></span>
+<span class="line"><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> m1;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// src/m.rs</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 将会加载src/m/m1.rs作为mod m::m1</span></span>
+<span class="line"><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> m1;</span></span></code></pre></div></div></figure>
+
+
+<p><strong>引用一个module</strong>：</p>
+<ul>
+<li>绝对路径：<code>&lt;crateName&gt;::&lt;moduleName1&gt;::&lt;moduleName2&gt;</code></li>
+<li>相对路径: 假设当前在root下，那引用moduleName2使用<code>[self::]&lt;moduleName1&gt;::&lt;moduleName2&gt;</code>，假设当前在moduleName1模块，那引用moduleName2就可以直接<code>moduleName2</code>。如果要访问父模块那么使用<code>super</code></li>
+<li>例子:  <figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">pub</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">A</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">a</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">crate</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B">A</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B">C</span><span style="color: #ABB2BF">::</span><span style="color: #61AFEF">c</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">self</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B">C</span><span style="color: #ABB2BF">::</span><span style="color: #61AFEF">c</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B">C</span><span style="color: #ABB2BF">::</span><span style="color: #61AFEF">c</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">pub</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">B</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">pub</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">b</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #E5C07B; font-style: italic">super</span><span style="color: #ABB2BF">::</span><span style="color: #61AFEF">a</span><span style="color: #ABB2BF">()</span></span>
+<span class="line"><span style="color: #ABB2BF">        }</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">pub</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> </span><span style="color: #E5C07B">C</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #C678DD">pub</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">c</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">                </span><span style="color: #E5C07B; font-style: italic">super</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B; font-style: italic">super</span><span style="color: #ABB2BF">::</span><span style="color: #61AFEF">a</span><span style="color: #ABB2BF">()</span></span>
+<span class="line"><span style="color: #ABB2BF">            }</span></span>
+<span class="line"><span style="color: #ABB2BF">        }</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure></li>
+</ul>
+<p><strong>可见性</strong>:</p>
+<ul>
+<li>默认情况下，模块、函数、类型、常量都是私有的（私有代表这个元素只能在本模块中使用）。</li>
+<li>父模块无法访问子模块中的私有项，但是子模块可以访问父模块、父父..模块的私有项。</li>
+<li>父模块可以访问私有直接元素:  <figure class="shiki rust"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> a {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> b {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">pub</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">b</span><span style="color: #ABB2BF">() {}</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #C678DD">mod</span><span style="color: #ABB2BF"> c {</span></span>
+<span class="line"><span style="color: #ABB2BF">            </span><span style="color: #C678DD">pub</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">c</span><span style="color: #ABB2BF">() {}</span></span>
+<span class="line"><span style="color: #ABB2BF">        }</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">fn</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">g</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">b</span><span style="color: #ABB2BF">::</span><span style="color: #61AFEF">b</span><span style="color: #ABB2BF">();</span><span style="color: #7F848E; font-style: italic"> // 可以访问</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #E5C07B">b</span><span style="color: #ABB2BF">::</span><span style="color: #E5C07B">c</span><span style="color: #ABB2BF">::</span><span style="color: #61AFEF">c</span><span style="color: #ABB2BF">();</span><span style="color: #7F848E; font-style: italic"> // 不能访问c模块</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure></li>
+<li>将结构体&#x2F;模块设置为 pub，它的内部元素依然是私有的；而将枚举设置为 pub，它的所有字段将对外可见</li>
+<li>使用pub时可以限制可见性:<ul>
+<li>pub 意味着可见性无任何限制</li>
+<li>pub(crate) 表示在当前包可见</li>
+<li>pub(self) 在当前模块可见</li>
+<li>pub(super) 在父模块可见</li>
+<li>pub(in <path>) 表示在某个路径代表的模块中可见，其中 path 必须是父模块或者祖先模块</li>
+</ul>
+</li>
+</ul>
+<p><strong>use</strong>:</p>
+<ul>
+<li>use 可以使用别名<code>use xxx as yyy</code></li>
+<li>use 可以引入当前模块并pub导出<code>pub use xxx</code>。例如一个模块<code>a::b::c</code>中定义了函数<code>f</code>，如果模块<code>x</code>中使用<code>use a::b::c</code>，那么<code>c</code>仅在<code>x</code>中可用，即别的模块引入<code>x</code>后不能能通过<code>x::c</code>访问到<code>x</code>所导入的<code>c</code>，使用<code>pub use</code>将能实现这个效果。</li>
+<li><code>use a::&#123;self, a1, a2&#125;</code>：相当于引入<code>use a; use a::a1; use a::a2</code></li>
+<li><code>use a::*</code>: 会引入所有元素, 重名时本地同名的优先级更高</li>
+</ul>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80">编程语言</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Rust">Rust</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

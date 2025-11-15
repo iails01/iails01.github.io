@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>邮件协议与服务 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=网络,邮件>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">邮件协议与服务</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-06-19</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="邮件协议"><a href="#邮件协议" class="headerlink" title="邮件协议"></a>邮件协议</h3><h4 id="SMTP（Simple-Mail-Transfer-Protocol）"><a href="#SMTP（Simple-Mail-Transfer-Protocol）" class="headerlink" title="SMTP（Simple Mail Transfer Protocol）"></a><strong>SMTP（Simple Mail Transfer Protocol）</strong></h4><ul>
+<li>发送邮件的协议。邮件客户端发送邮件时，通过SMTP将邮件发送给邮件服务器。SMTP主要用于邮件的发送和转发，而不是接收邮件。</li>
+<li>默认端口是25，587（加密传输），465（SSL）。</li>
+</ul>
+<h4 id="POP3（Post-Office-Protocol-3）"><a href="#POP3（Post-Office-Protocol-3）" class="headerlink" title="POP3（Post Office Protocol 3）"></a><strong>POP3（Post Office Protocol 3）</strong></h4><ul>
+<li>接收邮件的协议。邮件客户端通过向POP3服务器拉取邮件来接收邮件。默认情况下，POP3会将邮件从服务器下载到本地，并通常会从服务器上删除邮件（除非客户端配置为在服务器上保留邮件）。因此，客户端上的邮件删除是删除本地缓存的邮件，但这取决于客户端的配置。</li>
+<li>默认端口是110，995（SSL）。</li>
+</ul>
+<h4 id="IMAP（Internet-Message-Access-Protocol）"><a href="#IMAP（Internet-Message-Access-Protocol）" class="headerlink" title="IMAP（Internet Message Access Protocol）"></a><strong>IMAP（Internet Message Access Protocol）</strong></h4><ul>
+<li>接收邮件的协议。IMAP允许邮件客户端从邮件服务器同步邮件，邮件可以保留在服务器上。客户端上的操作（如删除邮件或移动邮件到文件夹）会同步到服务器，并且支持按目录组织邮件。因此，删除邮件会在本地和服务器上同步。</li>
+<li>默认端口是143，993（SSL）。</li>
+</ul>
+<h4 id="Exchange-ActiveSync"><a href="#Exchange-ActiveSync" class="headerlink" title="Exchange ActiveSync"></a><strong>Exchange ActiveSync</strong></h4><ul>
+<li>微软的协议，不仅仅是支持SMTP、POP3、IMAP，而是一个专有的同步协议。Exchange ActiveSync（EAS）支持邮件、日历、联系人和任务的同步。它不仅支持邮件的发送和接收（通过HTTP或HTTPS），还提供了对日历、联系人和任务的同步功能。EAS的设计目的是为移动设备提供高效的同步解决方案。</li>
+<li>EAS 还支持远程抹除设备的数据。</li>
+</ul>
+<h3 id="邮件发送和接收"><a href="#邮件发送和接收" class="headerlink" title="邮件发送和接收"></a>邮件发送和接收</h3><h4 id="邮件服务器"><a href="#邮件服务器" class="headerlink" title="邮件服务器"></a>邮件服务器</h4><ol>
+<li><p><strong>Mail Transfer Agent (MTA)</strong></p>
+<ul>
+<li><strong>作用</strong>：负责邮件的传递和路由。</li>
+<li><strong>示例</strong>：Postfix、Sendmail、Exim。</li>
+</ul>
+</li>
+<li><p><strong>Mail Delivery Agent (MDA)</strong></p>
+<ul>
+<li><strong>作用</strong>：将邮件存储到用户的邮箱。</li>
+<li><strong>示例</strong>：Dovecot、Cyrus IMAP。</li>
+</ul>
+</li>
+<li><p><strong>Mail User Agent (MUA)</strong></p>
+<ul>
+<li><strong>作用</strong>：客户端应用程序，用于发送、接收和管理邮件。</li>
+<li><strong>示例</strong>：Microsoft Outlook、Mozilla Thunderbird、Apple Mail。</li>
+</ul>
+</li>
+</ol>
+<h4 id="邮件系统的工作流程"><a href="#邮件系统的工作流程" class="headerlink" title="邮件系统的工作流程"></a>邮件系统的工作流程</h4><ol>
+<li><p><strong>发送邮件</strong>：</p>
+<ol>
+<li>用户通过MUA创建并发送邮件。</li>
+<li>MUA将邮件传递给SMTP服务器（MTA）。</li>
+<li>SMTP服务器根据收件人的域名查找目标SMTP服务器（DNS MX记录）。</li>
+<li>目标SMTP服务器接收邮件并将其传递给相应的MDA。</li>
+<li>MDA将邮件存储到收件人的邮箱中。</li>
+</ol>
+</li>
+<li><p><strong>接收邮件</strong>：</p>
+<ol>
+<li>用户的MUA连接到邮件服务器（POP3&#x2F;IMAP）。</li>
+<li>用户通过MUA下载或同步邮件。</li>
+<li>用户在MUA上管理邮件（阅读、删除、移动）。</li>
+</ol>
+</li>
+</ol>
+<h3 id="邮件地址"><a href="#邮件地址" class="headerlink" title="邮件地址"></a>邮件地址</h3><h4 id="邮件地址的结构"><a href="#邮件地址的结构" class="headerlink" title="邮件地址的结构"></a>邮件地址的结构</h4><p>一个标准的电子邮件地址由以下几个部分组成：</p>
+<ol>
+<li><strong>本地部分（Local Part）</strong>：在 <code>@</code> 符号之前的部分，通常是用户的名称或别名。</li>
+<li><strong>域部分（Domain Part）</strong>：在 <code>@</code> 符号之后的部分，通常是邮件服务器的域名。</li>
+</ol>
+<p>例如，对于邮箱地址 <code>user@example.com</code>：</p>
+<ul>
+<li><code>user</code> 是本地部分。</li>
+<li><code>example.com</code> 是域部分。</li>
+</ul>
+<h4 id="本地部分"><a href="#本地部分" class="headerlink" title="本地部分"></a>本地部分</h4><ul>
+<li><strong>允许的字符</strong>：本地部分可以包含字母（a-z、A-Z）、数字（0-9）、点（<code>.</code>）、加号（<code>+</code>）、减号（<code>-</code>）和下划线（<code>_</code>）。</li>
+<li><strong>大小写敏感性</strong>：根据RFC 5321，本地部分是区分大小写的。例如，<code>User@example.com</code> 和 <code>user@example.com</code> 是不同的邮件地址。然而，大多数邮件服务器对本地部分不区分大小写。</li>
+<li><strong>特殊用途</strong>：<ul>
+<li><strong>点号（<code>.</code>）</strong>：在许多邮件服务（如Gmail）中，点号在本地部分是忽略的。例如，<code>user.name@gmail.com</code> 和 <code>username@gmail.com</code> 被视为同一个地址。</li>
+<li><strong>加号（<code>+</code>）</strong>：许多邮件服务允许在本地部分使用加号来创建别名。例如，<code>user+newsletter@example.com</code> 和 <code>user@example.com</code> 通常指向同一个邮箱。这种形式常用于邮件过滤和分类。</li>
+</ul>
+</li>
+</ul>
+<h4 id="域部分"><a href="#域部分" class="headerlink" title="域部分"></a>域部分</h4><ul>
+<li><strong>格式</strong>：域部分必须是一个有效的域名，符合DNS的命名规则。通常由一个或多个标签组成（如 <code>example</code> 和 <code>com</code>），每个标签之间用点（<code>.</code>）分隔。</li>
+<li><strong>顶级域名（TLD）</strong>：域部分的最后一个标签是顶级域名（如 <code>.com</code>、<code>.org</code>、<code>.net</code>）。</li>
+<li><strong>子域名</strong>：域部分可以包含子域名（如 <code>mail.example.com</code>）。</li>
+</ul>
+<h4 id="国际化邮件地址"><a href="#国际化邮件地址" class="headerlink" title="国际化邮件地址"></a>国际化邮件地址</h4><ul>
+<li><strong>国际化邮件地址（EAI）</strong>：随着互联网的全球化发展，支持使用非ASCII字符的邮件地址变得越来越重要。国际化邮件地址允许使用Unicode字符（如汉字、阿拉伯字母、德语变音符等）。</li>
+<li><strong>格式</strong>：EAI中的本地部分和域部分都可以包含Unicode字符，但需要邮件服务器和客户端支持SMTPUTF8扩展。</li>
+</ul>
+<h3 id="一些邮件相关操作"><a href="#一些邮件相关操作" class="headerlink" title="一些邮件相关操作"></a>一些邮件相关操作</h3><h4 id="让某个发件人的邮件都放到固定的一个分组内"><a href="#让某个发件人的邮件都放到固定的一个分组内" class="headerlink" title="让某个发件人的邮件都放到固定的一个分组内"></a>让某个发件人的邮件都放到固定的一个分组内</h4><p>将特定发件人的邮件自动归类到指定分组或文件夹内，可以使用邮件客户端或邮件服务提供的过滤规则或邮件规则功能。以下是如何在几种常见的邮件客户端和服务中设置此类规则的步骤：</p>
+<h5 id="Microsoft-Outlook-桌面版"><a href="#Microsoft-Outlook-桌面版" class="headerlink" title="Microsoft Outlook (桌面版)"></a>Microsoft Outlook (桌面版)</h5><ol>
+<li><strong>打开Outlook</strong>：启动Microsoft Outlook。</li>
+<li><strong>创建规则</strong>：<ul>
+<li>点击顶部菜单栏中的“文件”。</li>
+<li>选择“管理规则和通知”。</li>
+<li>在“电子邮件规则”选项卡中，点击“新建规则”。</li>
+</ul>
+</li>
+<li><strong>设置规则条件</strong>：<ul>
+<li>在“规则向导”中，选择“从某人发来的邮件”。</li>
+<li>点击“下一步”，然后在发件人列表中选择或输入发件人的邮箱地址。</li>
+</ul>
+</li>
+<li><strong>设置规则动作</strong>：<ul>
+<li>选择“将其移到指定文件夹”，然后选择或新建一个文件夹。</li>
+<li>点击“完成”保存规则。</li>
+</ul>
+</li>
+</ol>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E7%BD%91%E7%BB%9C">网络</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E9%82%AE%E4%BB%B6">邮件</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

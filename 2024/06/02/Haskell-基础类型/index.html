@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>Haskell 基础类型 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=Haskell,函数式编程>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">Haskell 基础类型</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-06-02</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="haskell-中可描述的对象"><a href="#haskell-中可描述的对象" class="headerlink" title="haskell 中可描述的对象"></a>haskell 中可描述的对象</h3><ul>
+<li><code>类型构造子</code>：含有<code>kind</code>属性，用于构造函数的类型签名。任意一个<code>值构造子/函数</code>（无论是几个参数的）的<code>type</code>都是被<code>full applied</code>的，所以这个 <code>type</code> 所对应的<code>kind</code>都是<code>*</code></li>
+<li><code>值构造子</code>：含有<code>type</code>属性。</li>
+<li><code>函数</code>也可认为是通过<code>模式匹配</code> 来组合使用多个 <code>值构造子</code>的特殊的<code>值构造子</code>，所以函数也有<code>type</code>属性。作为函数&#x2F;值构造子的参数</li>
+<li><code>值</code>等价于<code>函数</code>，传统的值就是一个无参函数</li>
+</ul>
+<h3 id="函数与容器"><a href="#函数与容器" class="headerlink" title="函数与容器?"></a>函数与容器?</h3><blockquote>
+<p>另外 Maybe、[] 与 (-&gt;) r 都是 Functor 的实例，一定程度上表明了它们的联系。基于下面的的描述，可把Functor作为一种容器</p>
+</blockquote>
+<h4 id="容器可以理解为函数"><a href="#容器可以理解为函数" class="headerlink" title="容器可以理解为函数"></a>容器可以理解为函数</h4><p>函数<code>(-&gt;) a Int</code>的一个值<code> \_ -&gt; 1</code></p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #ABB2BF">unMaybe m = </span><span style="color: #C678DD">case</span><span style="color: #ABB2BF"> m </span><span style="color: #C678DD">of</span><span style="color: #ABB2BF"> </span></span>
+<span class="line"><span style="color: #ABB2BF">	</span><span style="color: #D19A66">Just</span><span style="color: #ABB2BF"> a -&gt; a</span></span>
+<span class="line"><span style="color: #ABB2BF">	</span><span style="color: #D19A66">Nothing</span><span style="color: #ABB2BF"> -&gt; undefined</span></span></code></pre></div></div></figure>
+
+<p>容器<code>Maybe Int</code> 的一个值 <code>Just 1</code>，它也可理解为<code>\_ -&gt; unMaybe(Just 1)</code>类型是<code>(-&gt;) () Int</code></p>
+<p>所以说<code>Maybe Int</code>可理解为<code>(-&gt;) a Int</code></p>
+<p>所以<code>Maybe</code>与<code>(-&gt;) a</code>本质上是类似的，只不过<code>Maybe</code>表达的是忽略参数的函数，并且通过<code>模式匹配</code>来实现了这个虚拟函数的调用(从而取出容器内的值)</p>
+<h4 id="函数也可以理解为容器"><a href="#函数也可以理解为容器" class="headerlink" title="函数也可以理解为容器"></a>函数也可以理解为容器</h4><p>函数可以看作特殊的容器类型<code>(-&gt;) r</code>，通过传入一个参数（类型是<code>r</code>）来取出容器中的值。</p>
+<p>普通的容器，如<code>Maybe</code>、<code>[]</code>用模式匹配来取出值。</p>
+<p>并且他们的<code>kind</code>是相同的<code>:k Maybe == * -&gt; *</code>，<code>:k ((-&gt;) Int) == * -&gt; *</code>，因此 <code>(-&gt;) a Int</code> 类似于 <code>Maybe Int</code>，而<code>(-&gt;) a ((-&gt;) a Int)</code> 类似于 <code>Maybe (Maybe Int)</code></p>
+<p>进一步的，如果把<code>(-&gt;) Int</code> 命名一个别名为<code>Func</code>(<code>type Func = (-&gt;) Int</code>)，那么<code>Func Int</code> 类似于 <code>Maybe Int</code> ，<code>Func (Func Int)</code> 类似于 <code>Maybe (Maybe Int)</code></p>
+<h3 id="kind"><a href="#kind" class="headerlink" title="kind"></a>kind</h3><ul>
+<li>每个typeConstructor都有自己的kind，就像每个valueConstructor（也就是function，在这里包含无参的function）都有自己的type</li>
+<li>一个<code>typeConstructor</code>的某个<code>valueConstructor</code>的<code>type</code>的形式与这个<code>typeConstructor</code>的<code>kind</code>的形式上一致</li>
+</ul>
+<figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf">:t Nothing 与 :k Maybe Int 形式一致</span></span>
+<span class="line"><span style="color: #abb2bf">:t Just 与 :k Maybe 形式一致</span></span></code></pre></div></div></figure>
+
+
+<p>通过<code>:kind &lt;type&gt;</code>或者<code>:k &lt;type&gt;</code>查看typeConstructor的kind</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- &lt;type&gt;引用的是type/data</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;kindDesc&gt; ::= (*|&lt;type&gt;) [ -&gt; (*|&lt;type&gt;)]*</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;kindAnno&gt; ::= &lt;type&gt; :: </span><span style="color: #C678DD">&lt;kindDesc&gt;</span></span></code></pre></div></div></figure>
+
+<ul>
+<li><code>*</code>：代表是具体type，对应的值是无参的</li>
+<li><code>* -&gt; *</code>：代表一个单参数typeConstructor，需要传递一个无参typeConstructor，然后会返回一个无参typeConstructor。这个type对应的值(即<code>function</code>)是1参的</li>
+<li><code>* -&gt; * -&gt; *</code>，等价于<code>* -&gt; (* -&gt; *)</code>，代表一个二参数typeConstructor。这个type对应的值(即<code>function</code>)是2参的</li>
+<li><code>(* -&gt; *) -&gt; *</code>：代表传递一个单参数typeConstructor，返回一个无参typeConstructor。这个type对应的值(即<code>function</code>)是1参的</li>
+<li>以此类推，可以加很多层<code>-&gt;</code></li>
+</ul>
+<h3 id="类型描述-类型注释"><a href="#类型描述-类型注释" class="headerlink" title="类型描述&#x2F;类型注释"></a>类型描述&#x2F;类型注释</h3><ul>
+<li><p>类型描述</p>
+</li>
+<li><p><code>:type &lt;exp&gt;</code>和<code>:t &lt;exp&gt;</code>查看值的类型</p>
+</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- &lt;type&gt; 引用的是type/data，&lt;typeVar&gt; 引用的是typeclass</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- -&gt;是右结合的(infixr 0)，即a-&gt;b-&gt;c-&gt;d == (a-&gt;(b-&gt;(c-&gt;d))) != (((a-&gt;b)-&gt;c)-&gt;d)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- &lt;typeDesc&gt; ::= [&lt;constrains&gt; =&gt;] [&lt;full applied type&gt; -&gt; ]* &lt;full applied type&gt; ，或者说直接下面这样（因为`-&gt;`是类型构造子）</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;typeDesc&gt; ::= [&lt;constrains&gt; =&gt;] &lt;type&gt; </span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;constrains&gt; ::= &lt;constrain&gt; | (&lt;constrain&gt; (, &lt;constrain&gt;)+)</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;constrain&gt; ::= &lt;typeclass&gt; &lt;typeVar&gt;+</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>类型注释</li>
+</ul>
+<p>代表这些<code>&lt;exp&gt;</code>的结果都是<code>&lt;typeDesc&gt;</code>所描述的类型</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #ABB2BF">&lt;typeAnno&gt; ::= &lt;exp&gt; (, &lt;exp&gt;)* :: </span><span style="color: #C678DD">&lt;typeDesc&gt;</span></span></code></pre></div></div></figure>
+
+<h3 id="Type（algebraic-data-type）"><a href="#Type（algebraic-data-type）" class="headerlink" title="Type（algebraic data type）"></a>Type（algebraic data type）</h3><ul>
+<li><code>type</code>：代表有参或无参的typeConstructor</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- [a]是[] a的语法糖，同样[1,2]是1:2:[]的语法糖，不过`:`是右结合的</span></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> [] </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = [] | a : [a]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 定义自己的list</span></span>
+<span class="line"><span style="color: #ABB2BF">data </span><span style="color: #D19A66">XList</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">XEmptyList</span><span style="color: #ABB2BF"> | </span><span style="color: #D19A66">XInsertHead</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">XList</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">,</span><span style="color: #D19A66">Read</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 或者</span></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">XList</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">XEmptyList</span><span style="color: #ABB2BF"> |  </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> `</span><span style="color: #D19A66">XInsertHead</span><span style="color: #ABB2BF">` (</span><span style="color: #D19A66">XList</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">,</span><span style="color: #D19A66">Read</span><span style="color: #ABB2BF">) </span><span style="color: #7F848E; font-style: italic">-- `XInsertHead`是左结合的</span></span></code></pre></div></div></figure>
+
+<h4 id="data"><a href="#data" class="headerlink" title="data"></a>data</h4><p>创建一个新的<code>typeConstructor</code>以及一些<code>valueConstructor</code>(不是必须的)，但是用的是<code>data</code>关键字</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">&lt;typeDef&gt;</span><span style="color: #ABB2BF"> [ = &lt;value&gt; (|&lt;value&gt;)* </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF"> (</span><span style="color: #C678DD">&lt;typeClass&gt;</span><span style="color: #ABB2BF"> (, </span><span style="color: #C678DD">&lt;typeClass&gt;</span><span style="color: #ABB2BF">)</span><span style="color: #C678DD">*</span><span style="color: #ABB2BF">) ]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">&lt;typeDef&gt; ::= &lt;typeConstructor&gt; (&lt;typeArg&gt; &lt;kindConstrain&gt;)* </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 类型参数，并非实际的类型引用。在定义时不能为这个类型添加约束，Haskell要求在函数定义中加入需要的约束，而不是在类型定义中</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;typeArg&gt; := [a-z].*</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 这里的&lt;typeArg&gt;必须是&lt;typeDef&gt;中包含了的，无参数的值构造子称作nullary的。`&lt;valueConstructor&gt;`可以是中缀的</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;value&gt; ::= &lt;valueConstructor&gt; (&lt;type&gt;|&lt;typeArg&gt;)* | (&lt;type|&lt;typeArg&gt;) 中缀的&lt;valueConstructor&gt; (&lt;type&gt;|&lt;typeArg&gt;)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">&lt;type&gt; ::= &lt;typeArg&gt; | &lt;typeConstructor&gt; &lt;type&gt;* </span><span style="color: #7F848E; font-style: italic">-- &lt;type&gt; 这里是引用的自身，&lt;typeArg&gt;是上下文中含有的类型参数。==typeConstructor同样可以部分传递参数，所以可以把具体type理解为一个无参的typeConstructor==</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- typeConstructor和valueConstructor可以一样，因为两者的使用位置不同，一个用来表达类型，一个用于表达函数</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;typeConstructor&gt; | &lt;valueConstructor&gt; ::= [</span><span style="color: #D19A66">A</span><span style="color: #C678DD">-</span><span style="color: #D19A66">Z</span><span style="color: #ABB2BF">]</span><span style="color: #C678DD">.*</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>像这样定义了一个type后，可以通过<code>&lt;typeConstructor&gt;</code>构造一个类型。<code>XList Int</code>、<code>Map Int</code>（类型参数也可以部分指定，可以用于简化类型别名的定义）</li>
+<li>typeConstructor只能前缀部分调用，不能中缀部分调用，中缀全调用是可以的</li>
+<li><code>&lt;valueConstructor&gt;</code>就是一个函数（不是普通的函数，普通的函数名开头是小写的，所以不能通过定义普通函数来创建），这个函数的参数类型就是<code>&lt;type&gt;*</code>决定的，调用这个函数会返回一个<code>&lt;type&gt;</code>类型的值，并且会根据类型推断添加类型参数的类型约束<code>data D a = D1 a; D1 1 :: Num a =&gt; D a</code></li>
+<li>&#x3D;&#x3D;模式匹配实际就是匹配的<code>&lt;value&gt;</code>&#x3D;&#x3D;，通过指定<code>&lt;valueConstructor&gt;</code>以及<code>&lt;constructorArg&gt;</code>就能匹配到<code>&lt;constructorArg&gt;</code>的值</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> [] </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = [] | a : [a]</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>如<code>[]</code>类型构造子拥有一个参数<code>a</code>，这个参数指定了元素的类型，它有两个值构造子<code>[]</code>（无参）、<code>:</code>（两个参数，类型是<code>a</code>和<code>[a]</code>）。</li>
+<li>而匹配的时候<code>[]</code>匹配了第一个值构造子，<code>a:b:c</code>匹配了第二个值构造子两次</li>
+</ul>
+<p>实例：</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Shape</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Circle</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> | </span><span style="color: #D19A66">Rectangle</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-----------------------</span></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 展示如何在type定义中使用其它type</span></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Shape</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Circle</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Float</span><span style="color: #ABB2BF"> | </span><span style="color: #D19A66">Rectangle</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">surface</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">Shape</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">Float</span></span>
+<span class="line"><span style="color: #ABB2BF">surface (</span><span style="color: #D19A66">Circle</span><span style="color: #ABB2BF"> _ r) = pi * r ^ </span><span style="color: #D19A66">2</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 使用值构造子匹配值</span></span>
+<span class="line"><span style="color: #ABB2BF">surface (</span><span style="color: #D19A66">Rectangle</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> x1 y1) (</span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> x2 y2)) = (abs $ x2 - x1) * (abs $ y2 - y1)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 展示如何使用值构造子创建值</span></span>
+<span class="line"><span style="color: #ABB2BF">surface (</span><span style="color: #D19A66">Rectangle</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">) (</span><span style="color: #D19A66">Point</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">100</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">100</span><span style="color: #ABB2BF">))</span></span></code></pre></div></div></figure>
+
+<h5 id="Record-Syntax"><a href="#Record-Syntax" class="headerlink" title="Record Syntax"></a>Record Syntax</h5><p>为值构造子的参数设置名字的语法。</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- 这里的这个&lt;value&gt;与type/data的&lt;value&gt;对应，&lt;type&gt;也是（这里的type必须是无参typeConstructor）</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;value&gt; ::= &lt;valueConstructor&gt; { &lt;</span><span style="color: #E06C75">arg</span><span style="color: #ABB2BF">&gt; (, &lt;arg&gt;)* }</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;arg&gt; ::= &lt;argName&gt; :: </span><span style="color: #C678DD">&lt;type&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 展示如何使用值构造子创建值</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;valueConstructor&gt; { &lt;</span><span style="color: #E06C75">value&#39;</span><span style="color: #ABB2BF">&gt; (, &lt;value&#39;&gt;)* }</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;value&#39;&gt; ::= &lt;argName&gt; = &lt;val&gt;</span></span></code></pre></div></div></figure>
+
+<p>实例：</p>
+<figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf">-- 生成了三个函数：company :: Car -&gt; String。。。</span></span>
+<span class="line"><span style="color: #abb2bf">data Car = Car {company :: String, model :: String, year :: Int} deriving (Show)</span></span>
+<span class="line"><span style="color: #abb2bf">-- 构造值</span></span>
+<span class="line"><span style="color: #abb2bf">Car {company=&quot;Ford&quot;, model=&quot;Mustang&quot;, year=1967}</span></span>
+<span class="line"><span style="color: #abb2bf">-- 匹配值</span></span>
+<span class="line"><span style="color: #abb2bf">f Car {company=a, model=b, year=c} = a ++ b ++ (show c)</span></span>
+<span class="line"><span style="color: #abb2bf">f Car {company=&quot;c&quot;, model=&quot;m&quot;, year=1} -- cm1</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>实际会生成一系列利用了模式匹配的单参数函数(<code>company :: Car -&gt; String</code>)，参数就是该类型的值，返回值就是函数名对应的<code>&lt;argName&gt;</code>值</li>
+</ul>
+<h5 id="类型参数-类型变量"><a href="#类型参数-类型变量" class="headerlink" title="类型参数 &lt;typeArg&gt; &#x2F; 类型变量 &lt;typeVar&gt;"></a>类型参数 <code>&lt;typeArg&gt;</code> &#x2F; 类型变量 <code>&lt;typeVar&gt;</code></h5><blockquote>
+<p><strong>类型参数</strong>是<strong>需要被传递的参数</strong>（可传递<code>type</code>，包括可传递上下文中已有的类型变量），<strong>存在于类型定义(<code>&lt;typeDef&gt;</code>)中。</strong></p>
+<p><strong>类型变量</strong>是用来<strong>指代</strong>某个被约束的类型范围，是个<strong>占位符</strong>，能够进行推断，或者通过<code>::</code>手动指定。本身就是代表某个type，可以像type（<code>Int</code>、<code>[Char]</code>、<code>Maybe</code>(partial applied)）一样使用。</p>
+</blockquote>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- Maybe类型的定义</span></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Maybe</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Nothing</span><span style="color: #ABB2BF"> | </span><span style="color: #D19A66">Just</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span></span></code></pre></div></div></figure>
+
+<p>对于那些含有<code>&lt;typeArg&gt;</code>的定义，如<code>&lt;type&gt;</code>。</p>
+<p>构造一个<code>type</code>可以通过传递上下文中已存在的”类型变量”，如<code>Just 1 :: (Num a) =&gt; a -&gt; Maybe a</code>中，把已有的类型变量<code>a</code>传递给了<code>Maybe</code>这个<code>&lt;typeConstructor&gt;</code>，函数调用时类型变量<code>a</code>的类型总是可以确定；也可以通过传递具体的<code>&lt;type&gt;</code>，如<code>createIntMaybe :: Int -&gt; Maybe Int</code>中的<code>Maybe Int</code>，来代表一个<code>&lt;type&gt;</code>。</p>
+<ul>
+<li><code>Map Int</code>（类型参数也可以部分指定，可用于类型的定义）<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">IntMap</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">v</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Map</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Int</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">v</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 类似函数的point free style</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">IntMap</span><span style="color: #ABB2BF">  = </span><span style="color: #D19A66">Map</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Int</span></span></code></pre></div></div></figure></li>
+</ul>
+<h5 id="deriving"><a href="#deriving" class="headerlink" title="deriving"></a>deriving</h5><blockquote>
+<p>类似于实现接口</p>
+</blockquote>
+<ul>
+<li>只能 deriving typeclass，deriving会由编译器自动进行<code>instance</code>的添加</li>
+</ul>
+<p><strong><code>Eq</code>、<code>Ord</code>、<code>Enum</code>、<code>Bounded</code>、<code>Show</code>、<code>Read</code>这些typeClass如何deriving：</strong></p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Person</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Person</span><span style="color: #ABB2BF"> { </span><span style="color: #E06C75">firstName</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">String</span></span>
+<span class="line"><span style="color: #ABB2BF">                     , </span><span style="color: #E06C75">lastName</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">String</span></span>
+<span class="line"><span style="color: #ABB2BF">                     , </span><span style="color: #E06C75">age</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">Int</span></span>
+<span class="line"><span style="color: #ABB2BF">                     } </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Eq</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">Read</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #ABB2BF">show </span><span style="color: #D19A66">Person</span><span style="color: #ABB2BF"> {</span><span style="color: #E06C75">firstName</span><span style="color: #ABB2BF"> = </span><span style="color: #98C379">&quot;Michael&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #E06C75">lastName</span><span style="color: #ABB2BF"> = </span><span style="color: #98C379">&quot;Diamond&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #E06C75">age</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">43</span><span style="color: #ABB2BF">}</span></span>
+<span class="line"><span style="color: #D19A66">Person</span><span style="color: #ABB2BF"> {</span><span style="color: #E06C75">firstName</span><span style="color: #ABB2BF"> = \</span><span style="color: #98C379">&quot;Michael</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, lastName = </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">Diamond</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, age = 43}&quot;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">read </span><span style="color: #D19A66">Person</span><span style="color: #ABB2BF"> {</span><span style="color: #E06C75">firstName</span><span style="color: #ABB2BF"> = \</span><span style="color: #98C379">&quot;Michael</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, lastName = </span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">Diamond</span><span style="color: #56B6C2">\&quot;</span><span style="color: #98C379">, age = 43}&quot;</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">Person</span></span>
+<span class="line"><span style="color: #D19A66">Person</span><span style="color: #ABB2BF"> {</span><span style="color: #E06C75">firstName</span><span style="color: #ABB2BF"> = </span><span style="color: #98C379">&quot;Michael&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #E06C75">lastName</span><span style="color: #ABB2BF"> = </span><span style="color: #98C379">&quot;Diamond&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #E06C75">age</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">43</span><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<ul>
+<li><code>Eq</code>，只要<code>==</code>或<code>/=</code>比较时左右两边是相同的值构造子，就会通过比较各个值是否相等来作为比较结果，所以各个值的type也是需要是<code>Eq</code>的instance。如果是同一type的不同值构造子构造的值那么会返回False</li>
+<li><code>Show</code>或<code>Read</code>：只要各个值的type都是<code>Show</code>或<code>Read</code>的instance就行</li>
+<li><code>Ord</code>，值构造子的各个值的type也必须是<code>Ord</code>的instance，比较双方必须是同一type（<code>(&lt;) :: a -&gt; a -&gt; Bool</code>），如果是不同的值构造子(左边的小于右边的，<code>Nothing &lt; Just 1</code>)，如果是相同的值构造子（依次比较值的大小）</li>
+<li><code>Bounded</code>，与<code>Ord</code>一样，能够比较大小，但是要求能有最大最小值并且值构造子都是<code>nullary</code>的。<code>minBound :: a</code>、<code>maxBound :: a</code>，这两个函数是无参函数，但是仍然能够指定”类型变量”的具体类型，来获取该类型的最大最小值（<code>minBound :: Int</code>）。</li>
+<li><code>Enum</code>，每个元素有前驱和后继（之构造值的前后，并且值构造子必须都是nullary的），可枚举的类型能够通过<code>..</code>的方式获取一个值的列表，如<code>[1,2..10]</code></li>
+</ul>
+<h4 id="newtype"><a href="#newtype" class="headerlink" title="newtype"></a>newtype</h4><ul>
+<li><code>newtype</code>必须有且只能有一个值构造子，并且这个值构造子也必须有且只能有一个参数</li>
+<li>在编译期，这个值构造子是存在的，但是在运行期是不存在的</li>
+<li>而普通的<code>data</code>，在编译期值构造子肯定也是存在的，在运行期也是不存在的，但是它会生成一个Dictionary用来记录某个值是由哪个值构造子创建的。而<code>newtype</code>创建的值构造子就不会，为的就是节省这个开销，在例子中就相当于<code>Nt</code>直接使用了<code>D</code>的值构造子，因为没有必要再加一层了</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">D</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Dc</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Int</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Int</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #C678DD">newtype</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Nt</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Nc</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">D</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>可以把<code>newtype</code>定义的类型当作普通的类型使用，因为在编译期<code>Nc值构造子</code>是存在的</li>
+<li>但是有特例，比如模式匹配中</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- 对undefined进行求值会引发异常</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 匹配时会对undefined进行求值，所以会产生异常</span></span>
+<span class="line"><span style="color: #C678DD">case</span><span style="color: #ABB2BF"> undefined </span><span style="color: #C678DD">of</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Dc</span><span style="color: #ABB2BF"> _ -&gt; </span><span style="color: #D19A66">1</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 没异常，因为Nc实际是不存在的，&#39;Nc x&#39; will always have the same representation as &#39;x&#39;</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 因此等价于undefined匹配`_`，由于永远都会匹配成功，所以undefined不需要也不会被求值</span></span>
+<span class="line"><span style="color: #C678DD">case</span><span style="color: #ABB2BF"> undefined </span><span style="color: #C678DD">of</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Nc</span><span style="color: #ABB2BF"> _ -&gt; </span><span style="color: #D19A66">1</span></span></code></pre></div></div></figure>
+
+<h4 id="类型别名"><a href="#类型别名" class="headerlink" title="类型别名"></a>类型别名</h4><ul>
+<li>实际是基于原有的<code>typeConstructor</code>定义新的<code>typeConstructor</code>！但是并没有产生新的<code>valueConstructor</code></li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- &lt;typeConstructor&gt; 是引用的type/data中的定义</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">&lt;typeConstructor&gt;</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">&lt;typeArg&gt;*</span><span style="color: #ABB2BF"> = </span><span style="color: #C678DD">&lt;typeConstructor&gt;</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">&lt;typeArg&gt;*</span></span></code></pre></div></div></figure>
+
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">String</span><span style="color: #ABB2BF"> = [</span><span style="color: #D19A66">Char</span><span style="color: #ABB2BF">]</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Entry</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">k</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">v</span><span style="color: #ABB2BF"> = (</span><span style="color: #C678DD">k</span><span style="color: #ABB2BF">,</span><span style="color: #C678DD">v</span><span style="color: #ABB2BF">) </span><span style="color: #7F848E; font-style: italic">-- (1,2) :: Entry Num Num</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">EntryList</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">k</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">v</span><span style="color: #ABB2BF"> = [</span><span style="color: #D19A66">Entry</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">k</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">v</span><span style="color: #ABB2BF">]</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">EntryList</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">k</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">v</span><span style="color: #ABB2BF"> = [(</span><span style="color: #C678DD">k</span><span style="color: #ABB2BF">,</span><span style="color: #C678DD">v</span><span style="color: #ABB2BF">)] </span><span style="color: #7F848E; font-style: italic">-- [(1,2)] :: EntryList Num Num</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 由于类型构造子的参数也可以部分指定，所以类似函数的point free style</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">IntMap</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">v</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Map</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Int</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">v</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 可写成</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">IntMap</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">Map</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Int</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>使用别名能够增强函数类型的可读性</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">PhoneNumber</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">String</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Name</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">String</span></span>
+<span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">PhoneBook</span><span style="color: #ABB2BF"> = [(</span><span style="color: #D19A66">Name</span><span style="color: #ABB2BF">,</span><span style="color: #D19A66">PhoneNumber</span><span style="color: #ABB2BF">)]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 判断指定的名字和号码是否在通讯录中</span></span>
+<span class="line"><span style="color: #61AFEF">inPhoneBook</span><span style="color: #ABB2BF"> :: </span><span style="color: #D19A66">Name</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">PhoneNumber</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">PhoneBook</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #D19A66">Bool</span></span>
+<span class="line"><span style="color: #ABB2BF">inPhoneBook name pnumber pbook = (name,pnumber) `elem` pbook</span></span></code></pre></div></div></figure>
+
+<h4 id="role"><a href="#role" class="headerlink" title="role"></a>role</h4><blockquote>
+<p><a target="_blank" rel="noopener" href="https://www.reddit.com/r/haskell/comments/3uvyed/acceptable_use_cases_of_coerce/">https://www.reddit.com/r/haskell/comments/3uvyed/acceptable_use_cases_of_coerce/</a></p>
+</blockquote>
+<p>类型有三种role：</p>
+<ul>
+<li><p><code>nominal</code>. Nominal equality is type equality as we know it. GHC knows that Int is nominally equal to Int, but doesn’t know that Int is nominally equal to Char.</p>
+</li>
+<li><p><code>representational</code>. Any two nominally equal types are also representationally equal, and in addition, a newtype is representationally equal to its underlying type. For example, GHC knows that Int is representationally equal to Int, and if you have newtype WrappedInt &#x3D; WrapInt Int, then GHC knows that Int is representationally equal to WrappedInt.</p>
+</li>
+<li><p><code>phantom</code>. Any two types are phantom equal.</p>
+</li>
+</ul>
+<p>指定类型的role：</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">type</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">role</span><span style="color: #ABB2BF"> &lt;type&gt; </span><span style="color: #C678DD">nominal</span></span></code></pre></div></div></figure>
+
+<blockquote>
+<p>coerce :: Coercible a b &#x3D;&gt; a -&gt; b</p>
+<p>GHC will infer that two types are Coercible if and only if they are representationally equal.</p>
+<p><a target="_blank" rel="noopener" href="https://wiki.haskell.org/GHC/Coercible">https://wiki.haskell.org/GHC/Coercible</a></p>
+</blockquote>
+<h4 id="Either-类型"><a href="#Either-类型" class="headerlink" title="Either 类型"></a>Either 类型</h4><ul>
+<li>这个类型可以拥有两种不同类型，只能选择其中一个类型存一个值</li>
+</ul>
+<figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf">data Either a b = Left a | Right b deriving (Eq, Ord, Read, Show)</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>用途之一就是，作为一个返回值。当代表成功时将结果存入Right，代表失败时将结果存入Left。这样对结果使用模式匹配就能知道调用是否成功，以及成功信息或者失败信息。</li>
+</ul>
+<p>Maybe也可以表达失败（<code>Nothing</code>），但是没有失败信息</p>
+<h4 id="实例"><a href="#实例" class="headerlink" title="实例"></a>实例</h4><p>定义一棵树</p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Tree</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">EmptyTree</span><span style="color: #ABB2BF"> | </span><span style="color: #D19A66">Node</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Tree</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) (</span><span style="color: #D19A66">Tree</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">Read</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">Eq</span><span style="color: #ABB2BF">)</span></span></code></pre></div></div></figure>
+
+<h3 id="typeclass"><a href="#typeclass" class="headerlink" title="typeclass"></a>typeclass</h3><blockquote>
+<p>类似于接口</p>
+</blockquote>
+<ul>
+<li>为类型（不只是<code>kind</code>为<code>*</code>的类型）归类一些共有的操作</li>
+<li>所有的typeclass都是一个类型构造子，但与一般的类型构造子不同，它最终构造的类型是<code>Constraint</code>而不是<code>*</code>。如<code>class A a</code>，<code>A</code>的kind是<code>* -&gt; Constraint</code></li>
+<li>使用<code>:info &lt;typeclass&gt;</code>或者<code>:i &lt;typeclass&gt;</code>查看typeclass信息</li>
+<li>可以查看该typeclass定义的函数和它的实例</li>
+</ul>
+<h4 id="定义typeclass"><a href="#定义typeclass" class="headerlink" title="定义typeclass"></a>定义typeclass</h4><figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- &lt;constrains&gt;引用自类型描述/类型注释</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">&lt;typeVar&gt; ::= [a-z].*</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;typeclassDef&gt; ::= class [&lt;constrains&gt; =&gt;] &lt;typeclass&gt; &lt;typeVar&gt;+ </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> &lt;defs&gt;</span></span></code></pre></div></div></figure>
+
+<ul>
+<li><p><code>&lt;typeVar&gt;</code>代表的是此<code>&lt;typeclass&gt;</code>的一个<code>instance</code>（即某个<code>typeConstructor</code>，有参或无参），用于在需要这个类型时充当占位符</p>
+</li>
+<li><p><code>instance</code>的<code>kind</code>是通过<code>&lt;typeclassDef&gt;</code>内部的<code>&lt;defs&gt;</code>中为<code>c</code>给予了几个参数来确定的（如<code>x -&gt; c a b -&gt; y</code>，那么<code>c</code>的<code>kind</code>是<code>* -&gt; * -&gt; *</code>，而<code>x -&gt; c a b -&gt; c a</code>则编译不通过）</p>
+</li>
+<li><p><code>&lt;constrains&gt;</code>中对<code>&lt;typeVar&gt;</code>的<code>constrain</code>，表明了<code>&lt;typecalss&gt;</code>是另外某些<code>typeclass</code>的<code>subclass</code>，(<code>&lt;typeclass&gt;</code>的<code>instance</code>也必须是那些<code>typeclass</code>的<code>instance</code>，因此必须分别实现那些<code>typeclass</code>中的<code>&lt;defs&gt;</code>（存疑!）)</p>
+</li>
+<li><p><code>&lt;defs&gt;</code>中可以声明函数类型，可以定义函数，还可以声明此typeclass的<code>minimal complete definition</code>（比如Num的<code>&#123;-# MINIMAL (+), (*), abs, signum, fromInteger, (negate | (-)) #-&#125;</code>，代表一个type至少得实现这些函数才能作为Num的实例）</p>
+</li>
+</ul>
+<h4 id="为typeclass添加instance（instance都是type）"><a href="#为typeclass添加instance（instance都是type）" class="headerlink" title="为typeclass添加instance（instance都是type）"></a>为typeclass添加instance（instance都是type）</h4><ul>
+<li>一个<code>type</code>作为某个<code>typeclass</code>的一个instance代表，这个<code>type</code>（这个<code>type</code>未必是全调用的，例如当<code>kind</code>为<code>* -&gt; *</code>时它的<code>valueConstructor</code>是一个函数）的<code>valueConstructor</code>能够参与这个typeclass声明的一些运算中</li>
+<li>当类型推导表示某个typeclass定义的某个运算使用到了这个类型的值，那么这个运算会使用这个instance中定义的运算的实现</li>
+<li>可以称作 <code>&lt;instance&gt;</code> 是一个 <code>&lt;typeclass&gt;</code>，就像Int是一个Num，<code>(-&gt;) r</code>是一个<code>Functor</code></li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">-- &lt;type&gt;是type/data中的，&lt;typeclass&gt;是typeclass中的，&lt;constrains&gt;引用自类型描述/类型注释</span></span>
+<span class="line"><span style="color: #ABB2BF">&lt;instanceDef&gt; ::= instance [&lt;constrains&gt; =&gt;] &lt;typeclass&gt; &lt;type&gt; </span><span style="color: #C678DD">where</span><span style="color: #ABB2BF"> &lt;defs&gt;</span></span></code></pre></div></div></figure>
+
+<ul>
+<li><code>&lt;defs&gt;</code>中的函数定义能替换typeclass的<code>&lt;defs&gt;</code>中相应的函数定义</li>
+<li>如果<code>&lt;defs&gt;</code>中使用到了某些<code>typeclass</code>的函数，<code>&lt;constrains&gt;</code>必须添加该<code>typeclass</code>的约束</li>
+</ul>
+<p><strong>例子</strong></p>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"></span>
+<span class="line"><span style="color: #C678DD">class</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Eq</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #D19A66">C</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">   </span><span style="color: #61AFEF">add</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">a</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 基于上面的代码，使I a 是 C 的实例：</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 由于Eq是C subclass，所以如果想要 I a 是C的实例，那么它也必须是Eq的实例</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 由于用到了==判断a type的值是否相等，所以a必须是Eq的实例</span></span>
+<span class="line"><span style="color: #C678DD">instance</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Eq</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #D19A66">Eq</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> x) == (</span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> y) = x == y</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 由于我们上面的定义，只有a是Eq的实例时I a才会是Eq的实例，而又由于I a必须是Eq的实例，I a才能是C的实例，所以a必须是Eq的实例I a才能是C的实例。</span></span>
+<span class="line"><span style="color: #ABB2BF">必须A 才能 </span><span style="color: #D19A66">B</span></span>
+<span class="line"><span style="color: #ABB2BF">必须B 才能 </span><span style="color: #D19A66">C</span></span>
+<span class="line"><span style="color: #ABB2BF">所以：必须A 才能 </span><span style="color: #D19A66">C</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 由于这里的I a必须同时都是Eq和C的实例，所以a必须是Eq的实例</span></span>
+<span class="line"><span style="color: #ABB2BF">为了B&amp;&amp;</span><span style="color: #D19A66">C</span><span style="color: #ABB2BF"> 必须 </span><span style="color: #D19A66">A</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 又由于用到了+对a type的值进行运算，所以a的必须是Num的instance</span></span>
+<span class="line"><span style="color: #C678DD">instance</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Eq</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">, </span><span style="color: #D19A66">Num</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #D19A66">C</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> x) `add` (</span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> y) = </span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> $ x + y</span></span></code></pre></div></div></figure>
+
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">class</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">C</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">   </span><span style="color: #61AFEF">add</span><span style="color: #ABB2BF"> :: </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> -&gt; </span><span style="color: #C678DD">a</span></span>
+<span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">-- 这里并不要求I a必须是Eq的实例，它可以单纯是C的实例但不是Eq的实例。</span></span>
+<span class="line"><span style="color: #C678DD">instance</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Num</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #D19A66">C</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> x) `add` (</span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> y) = </span><span style="color: #D19A66">A</span><span style="color: #ABB2BF"> $ x + y</span></span></code></pre></div></div></figure>
+
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">data</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> = </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">deriving</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">Show</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">instance</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">Num</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) =&gt; </span><span style="color: #D19A66">Num</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">a</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> x) + (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> y) = </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> $ x + y</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> x) * (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> y) = </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> $ x * y</span></span>
+<span class="line"><span style="color: #ABB2BF">    negate (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> x) = </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> $ negate x</span></span>
+<span class="line"><span style="color: #ABB2BF">    abs (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> x) = </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> $ abs x</span></span>
+<span class="line"><span style="color: #ABB2BF">    signum (</span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> x) = </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> $ signum x</span></span>
+<span class="line"><span style="color: #ABB2BF">    fromInteger x = </span><span style="color: #D19A66">I</span><span style="color: #ABB2BF"> $ fromInteger x</span></span></code></pre></div></div></figure>
+
+<h4 id="一些-typeclass"><a href="#一些-typeclass" class="headerlink" title="一些 typeclass"></a>一些 typeclass</h4><ul>
+<li><code>Enum</code>：的实例：<code>()</code>, <code>Bool</code>, <code>Char</code>, <code>Ordering</code>, <code>Int</code>, <code>Integer</code>, <code>Float</code> 和 <code>Double</code>。每个值都有后继子 (successer) 和前置子 (predecesor)，分别可以通过 <code>succ</code> 函数和 <code>pred</code> 函数得到。</li>
+<li><code>Bounded</code>：成员都有一个上限和下限。如果Tuple中的项都属于 Bounded Typeclass，那么该 Tuple 也属于 Bounded。<code>minBound</code> 和 <code>maxBound</code> 函数，它们的类型都是 <code>(Bounded a) =&gt; a</code></li>
+<li><code>Num</code>： 亲近Show 和 Eq，才可以加入 Num</li>
+<li><code>Integral</code> 同样是表示数字的 typeclass。Num 包含所有的数字：实数和整数。而 Integral 仅包含整数，其中的成员型别有 Int 和 Integer。</li>
+<li><code>Floating</code>实例：Float 和 Double。</li>
+</ul>
+<h3 id="Functor-Applicative-Monad-的实例"><a href="#Functor-Applicative-Monad-的实例" class="headerlink" title="Functor&#x2F;Applicative&#x2F;Monad 的实例"></a>Functor&#x2F;Applicative&#x2F;Monad 的实例</h3><ul>
+<li>Maybe：</li>
+</ul>
+<figure class="shiki haskell "><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></div><div class="code"><pre><code>instance  Functor Maybe  where
+    fmap _ Nothing       = Nothing
+    fmap f (Just a)      = Just (f a)
+
+instance Applicative Maybe where
+    pure = Just
+
+    Just f  <*> m       = fmap f m
+    Nothing <*> _m      = Nothing
+
+    liftA2 f (Just x) (Just y) = Just (f x y)
+    liftA2 _ _ _ = Nothing
+
+    Just _m1 *> m2      = m2
+    Nothing  *> _m2     = Nothing
+
+instance  Monad Maybe  where
+    (Just x) >>= k      = k x
+    Nothing  >>= _      = Nothing
+
+    (>>) = (*>)</code></pre></div></div></figure>
+
+<ul>
+<li>(-&gt;) r：</li>
+</ul>
+<figure class="shiki haskell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">instance</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Functor</span><span style="color: #ABB2BF"> ((</span><span style="color: #C678DD">-&gt;</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">r</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    fmap = (</span><span style="color: #61AFEF">.</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">instance</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Applicative</span><span style="color: #ABB2BF"> ((</span><span style="color: #C678DD">-&gt;</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">r</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    pure = const</span></span>
+<span class="line"><span style="color: #ABB2BF">    (</span><span style="color: #61AFEF">&lt;*&gt;</span><span style="color: #ABB2BF">) f g x = f x (g x)</span></span>
+<span class="line"><span style="color: #ABB2BF">    liftA2 q f g x = q (f x) (g x)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">instance</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">Monad</span><span style="color: #ABB2BF"> ((</span><span style="color: #C678DD">-&gt;</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">r</span><span style="color: #ABB2BF">) </span><span style="color: #C678DD">where</span></span>
+<span class="line"><span style="color: #ABB2BF">    f &gt;&gt;= k = \ r -&gt; k (f r) r</span></span></code></pre></div></div></figure>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Haskell">Haskell</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B">函数式编程</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

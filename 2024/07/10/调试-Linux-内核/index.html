@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>调试 Linux 内核 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=调试,Linux>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">调试 Linux 内核</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-07-10</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="编译镜像"><a href="#编译镜像" class="headerlink" title="编译镜像"></a>编译镜像</h3><ol>
+<li>下载源码</li>
+</ol>
+<figure class="shiki shell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #61AFEF">wget</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.19.303.tar.xz</span></span>
+<span class="line"><span style="color: #61AFEF">tar</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-xvf</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">linux-4.19.303.tar.xz</span></span>
+<span class="line"><span style="color: #98C379">```</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">2.</span><span style="color: #98C379"> 修改编译配置</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">执行</span><span style="color: #98C379"> `</span><span style="color: #61AFEF">make</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">menuconfig` </span><span style="color: #61AFEF">进入</span><span style="color: #98C379"> tui 配置界面，需要开启 `</span><span style="color: #61AFEF">Compile</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">the</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">kernel</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">with</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">debug</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">info` </span><span style="color: #61AFEF">和关闭</span><span style="color: #98C379"> `</span><span style="color: #61AFEF">Randomize</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">the</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">address</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">of</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">the</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">kernel</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">image`</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #98C379">```</span></span>
+<span class="line"><span style="color: #61AFEF">Kernel</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">hacking</span><span style="color: #ABB2BF">  </span><span style="color: #D19A66">---</span><span style="color: #ABB2BF">&gt;</span><span style="color: #ABB2BF"> </span></span>
+<span class="line"><span style="color: #ABB2BF">    [*] </span><span style="color: #61AFEF">Kernel</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">debugging</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">Compile-time</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">checks</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">and</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">compiler</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">options</span><span style="color: #ABB2BF">  </span><span style="color: #D19A66">---</span><span style="color: #ABB2BF">&gt;</span></span>
+<span class="line"><span style="color: #ABB2BF">        [*] </span><span style="color: #61AFEF">Compile</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">the</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">kernel</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">with</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">debug</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">info</span></span>
+<span class="line"><span style="color: #ABB2BF">        [*]   </span><span style="color: #61AFEF">Provide</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">GDB</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">scripts</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">for</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">kernel</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">debuggin</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">Processor</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">type</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">and</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">features</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">----</span><span style="color: #ABB2BF">&gt;</span></span>
+<span class="line"><span style="color: #ABB2BF">    [] </span><span style="color: #61AFEF">Randomize</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">the</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">address</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">of</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">the</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">kernel</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">image</span><span style="color: #ABB2BF"> (KASLR)</span></span>
+<span class="line"><span style="color: #98C379">```</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">3.</span><span style="color: #98C379"> 安装编译时会用到的工具</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #98C379">```</span><span style="color: #61AFEF">shell</span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">libncurses5-dev</span><span style="color: #ABB2BF">   </span><span style="color: #98C379">openssl</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">libssl-</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">dev</span><span style="color: #ABB2BF"> </span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">build-essential</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">openssl</span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">pkg-config</span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">libc6-dev</span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">bison</span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">flex</span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">libelf-dev</span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">zlibc</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">minizip</span></span>
+<span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">apt-get</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">libidn11-dev</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">libidn11</span></span>
+<span class="line"><span style="color: #98C379">```</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">4.</span><span style="color: #98C379"> 编译 `</span><span style="color: #61AFEF">make</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-j</span><span style="color: #ABB2BF">&lt;</span><span style="color: #D19A66">编译用到的cpu核心数</span><span style="color: #ABB2BF">&gt;</span><span style="color: #98C379">`</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">5.</span><span style="color: #98C379"> 编译完成后在 `</span><span style="color: #61AFEF">arch</span><span style="color: #98C379">` </span><span style="color: #61AFEF">目录下找到自己的</span><span style="color: #98C379"> cpu 架构下对应的目录。里面的 `</span><span style="color: #61AFEF">boot</span><span style="color: #98C379">` </span><span style="color: #61AFEF">中包含</span><span style="color: #98C379"> `</span><span style="color: #61AFEF">bzImage</span><span style="color: #98C379">` </span><span style="color: #61AFEF">和</span><span style="color: #98C379"> `</span><span style="color: #61AFEF">vmLinux</span><span style="color: #98C379">`</span><span style="color: #61AFEF">。其中</span><span style="color: #98C379"> `</span><span style="color: #61AFEF">bzImage</span><span style="color: #98C379">` </span><span style="color: #61AFEF">是一个</span><span style="color: #98C379"> `</span><span style="color: #61AFEF">gzip</span><span style="color: #98C379">` </span><span style="color: #61AFEF">自解压的</span><span style="color: #98C379"> Linux 压缩镜像。`</span><span style="color: #61AFEF">vmLinux</span><span style="color: #98C379">` </span><span style="color: #61AFEF">是未压缩的镜像，它包含调试信息。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">### 制作 rootfs</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">rootfs</span><span style="color: #98C379"> 提供了 Linux 运行所需要的文件，例如关键的目录结构、shell命令、系统配置、动态链接库等。Linux 初始化过程中需要这个文件系统作为 initramfs (内存之上的文件系统) 来引导系统启动。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">busybox</span><span style="color: #98C379"> 将多个工具（如 ls、cp、mv、rm、cat、echo 等）集成到一个单一的可执行文件中，可以通过符号链接（symlink）或硬链接（hard link）来调用不同的工具。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">所以我们可以利用</span><span style="color: #98C379"> busybox 来作为 rootfs 的一部分。</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">1.</span><span style="color: #98C379"> 下载 busybox，并解压</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #98C379">```</span><span style="color: #61AFEF">shell</span></span>
+<span class="line"><span style="color: #61AFEF">wget</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">https://busybox.net/downloads/busybox-1.36.1.tar.bz2</span></span>
+<span class="line"><span style="color: #61AFEF">tar</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-xvf</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">busybox-1.36.1.tar.bz2</span></span>
+<span class="line"><span style="color: #98C379">```</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">2.</span><span style="color: #98C379"> 进入 busybox 目录，修改 busybox 编译配置</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #98C379">```</span><span style="color: #61AFEF">shell</span></span>
+<span class="line"><span style="color: #61AFEF">$</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">make</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">menuconfig</span></span>
+<span class="line"><span style="color: #61AFEF">-&gt;</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">Settings</span></span>
+<span class="line"><span style="color: #61AFEF">　---</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">Build</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">Options</span></span>
+<span class="line"><span style="color: #61AFEF">　　[*]</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">Build</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">static</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">binary</span><span style="color: #ABB2BF"> (no </span><span style="color: #98C379">shared</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">libs</span><span style="color: #ABB2BF">)</span></span>
+<span class="line"><span style="color: #98C379">```</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #61AFEF">3.</span><span style="color: #98C379"> 编译 busybox</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #98C379">```</span><span style="color: #61AFEF">shell</span></span>
+<span class="line"><span style="color: #61AFEF">make</span><span style="color: #ABB2BF"> &amp;&amp; </span><span style="color: #61AFEF">make</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">install</span></span></code></pre></div></div></figure>
+
+<ol start="4">
+<li>创建关键目录</li>
+</ol>
+<figure class="shiki shell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #61AFEF">mkdir</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">bin</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">dev</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">proc</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">sys</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">tmp</span></span></code></pre></div></div></figure>
+
+<ol start="5">
+<li>创建 init 文件</li>
+</ol>
+<figure class="shiki shell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">#!/bin/sh</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 指定解释器为 /bin/sh，即 Bourne shell 或其兼容版本</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 打印一条调试信息，表示初始化脚本开始执行</span></span>
+<span class="line"><span style="color: #56B6C2">echo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&quot;{==DBG==} INIT SCRIPT&quot;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 创建 /tmp 目录。这个目录通常用于存放临时文件</span></span>
+<span class="line"><span style="color: #61AFEF">mkdir</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">/tmp</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 挂载 proc 文件系统到 /proc 目录。proc 文件系统提供了内核和进程信息</span></span>
+<span class="line"><span style="color: #61AFEF">mount</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-t</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">proc</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">none</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">/proc</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 挂载 sysfs 文件系统到 /sys 目录。sysfs 文件系统提供了设备和内核模块的信息</span></span>
+<span class="line"><span style="color: #61AFEF">mount</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-t</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">sysfs</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">none</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">/sys</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 挂载 debugfs 文件系统到 /sys/kernel/debug 目录。debugfs 文件系统用于调试信息和调试工具</span></span>
+<span class="line"><span style="color: #61AFEF">mount</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-t</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">debugfs</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">none</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">/sys/kernel/debug</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 挂载 tmpfs 文件系统到 /tmp 目录。tmpfs 是一个基于内存的文件系统，适合存放临时文件</span></span>
+<span class="line"><span style="color: #61AFEF">mount</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-t</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">tmpfs</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">none</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">/tmp</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 运行 mdev -s 命令。mdev 是一个轻量级的设备管理器，通常用于嵌入式系统中。-s 选项表示扫描 /sys 目录以发现和配置设备节点</span></span>
+<span class="line"><span style="color: #61AFEF">mdev</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-s</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 打印一条调试信息，显示系统启动所花费的时间。/proc/uptime 文件的第一列是系统启动后的秒数。cut -d&#39; &#39; -f1 /proc/uptime 提取这个值</span></span>
+<span class="line"><span style="color: #56B6C2">echo</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-e</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&quot;{==DBG==} Boot took $(</span><span style="color: #61AFEF">cut</span><span style="color: #98C379"> </span><span style="color: #D19A66">-d</span><span style="color: #98C379">&#39; &#39; </span><span style="color: #D19A66">-f1</span><span style="color: #98C379"> /proc/uptime) seconds&quot;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"># 使用 exec 命令启动一个新的 shell（/bin/sh），并替换当前的脚本进程。exec 命令不会创建新的进程，而是用指定的命令替换当前进程。这意味着脚本执行完毕后，用户将进入一个交互式 shell 环境</span></span>
+<span class="line"><span style="color: #56B6C2">exec</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">/bin/sh</span></span></code></pre></div></div></figure>
+
+<ol start="6">
+<li>基于上面编译和创建文件制作 rootfs 镜像</li>
+</ol>
+<figure class="shiki shell"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic"># 将当前目录下的所有文件以 newc 的格式归档到 rootfs.img 文件中。</span></span>
+<span class="line"><span style="color: #61AFEF">find</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">.</span><span style="color: #ABB2BF"> | </span><span style="color: #61AFEF">cpio</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">-o</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">--format=newc</span><span style="color: #ABB2BF"> &gt; </span><span style="color: #98C379">./rootfs.img</span></span></code></pre></div></div></figure>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E8%B0%83%E8%AF%95">调试</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Linux">Linux</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>Linux 修改 Wi-Fi 功率 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=网络,Linux>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">Linux 修改 Wi-Fi 功率</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-05-30</span> <br>
+  </div>
+  <div class="post-content">
+    <p>使用 <code>iw</code> 命令查看当前 WiFi 的功率（传输功率）可以按照以下步骤进行：</p>
+<ol>
+<li><p><strong>列出所有无线接口</strong>：首先，使用 <code>iw dev</code> 命令列出所有的无线网络接口，找到接口名称。例如：</p>
+ <figure class="shiki sh"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #61AFEF">iw</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">dev</span></span></code></pre></div></div></figure>
+
+<p> 输出可能类似于：</p>
+ <figure class="shiki sh"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #61AFEF">phy#0</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">Interface</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">wlan0</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">ifindex</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">3</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">wdev</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0x1</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">addr</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">00</span><span style="color: #98C379">:11:22:33:44:55</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #56B6C2">type</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">managed</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">txpower</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">20.00</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">dBm</span></span></code></pre></div></div></figure>
+
+<p> 在这个例子中，无线接口的名称是 <code>wlan0</code>。</p>
+</li>
+<li><p><strong>查看指定接口的传输功率</strong>：一旦知道了接口名称，可以使用 <code>iw</code> 命令查看该接口的传输功率。例如，对于 <code>wlan0</code> 接口，使用以下命令：</p>
+ <figure class="shiki sh"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #61AFEF">iw</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">dev</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">wlan0</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">info</span></span></code></pre></div></div></figure>
+
+<p> 可能输出类似的信息：</p>
+ <figure class="shiki sh"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #61AFEF">Interface</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">wlan0</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">ifindex</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">3</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">wdev</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0x1</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">addr</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">00</span><span style="color: #98C379">:11:22:33:44:55</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #56B6C2">type</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">managed</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">txpower</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">20.00</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">dBm</span></span></code></pre></div></div></figure>
+
+<p> <code>txpower</code> 字段即为当前的传输功率，单位是 dBm。</p>
+</li>
+</ol>
+<p>如果调整传输功率，可以使用类似以下的命令：</p>
+<figure class="shiki sh"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #61AFEF">sudo</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">iw</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">dev</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">wlan0</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">set</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">txpower</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">fixed</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">2000</span></span></code></pre></div></div></figure>
+
+<p>上述命令将传输功率设置为 20.00 dBm。</p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E7%BD%91%E7%BB%9C">网络</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Linux">Linux</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>GDB 的使用 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=工具,调试>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">GDB 的使用</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-06-23</span> <br>
+  </div>
+  <div class="post-content">
+    <p>GDB 是C&#x2F;C++程序的调试器。</p>
+<p>编译时需要添加debug信息，添加 <code>-g</code>、<code>-g3</code>、<code>-ggdb</code>、 <code>-ggdb3</code> 参数。（带<code>3</code>的会携带宏的信息）</p>
+<h3 id="基本使用"><a href="#基本使用" class="headerlink" title="基本使用"></a>基本使用</h3><h4 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h4><p><code>gdb &lt;可执行文件&gt;</code>，会进入gdb 交互式环境，可以加<code>-tui</code>参数进入tui环境。此时要调试的程序并没有执行，需要用<code>run</code>命令执行。</p>
+<p><code>gdb attach &lt;pid&gt;</code>，会直接attach到某个进程。也可以先用<code>gdb</code>启动交互式环境再<code>attach &lt;pid&gt;</code>。</p>
+<p>可以通过<code>tui enable/disable</code>进入或退出tui环境。</p>
+<h4 id="断点"><a href="#断点" class="headerlink" title="断点"></a>断点</h4><ul>
+<li><code>info b</code>：查看当前设置了哪些断点。</li>
+<li><code>b &lt;断点位置&gt; &lt;断点条件&gt;</code><ul>
+<li><code>b &lt;函数名称&gt;</code>：在函数入口设置断点。</li>
+<li><code>b &lt;行号&gt;</code>：在当前文件的第n行设置断点。</li>
+<li><code>b &lt;文件名:行号&gt;</code></li>
+<li><code>b &lt;断点位置&gt; if x == 1</code>：条件断点。</li>
+</ul>
+</li>
+<li><code>delete &lt;断点序号&gt;...</code>：删除断点，序号通过<code>info</code>查看。</li>
+<li><code>enable/disable &lt;断点序号&gt;...</code>：启用或禁用断点。</li>
+</ul>
+<p>进入断点后:</p>
+<p><strong>调试流程控制</strong>：</p>
+<ul>
+<li><code>next/n</code>：下一行，遇到函数调用不会进入</li>
+<li><code>step/s</code>：下一步，遇到函数调用会进入</li>
+<li><code>finish</code>：完成当前函数，返回到调用当前函数的那行</li>
+<li><code>until/u</code>：继续执行到某一行停下。（如果目的点是函数外的话，会先到函数调用处停下）</li>
+<li><code>continue/c</code>：跳过此断点。</li>
+</ul>
+<p><strong>信息获取</strong>：</p>
+<ul>
+<li><code>print/p</code>: <code>p x</code>打印变量值, <code>p x=1</code>修改变量值。变量可以是寄存器，使用<code>$寄存器名称</code>访问。</li>
+<li><code>backtrace/bt</code>:打印调用栈</li>
+<li><code>list/l</code>：查看当前行附近代码（<code>l .</code> 列出当前行附近10行；<code>l</code> 列出上次列出最后一行的后10行）</li>
+<li><code>info/i</code>: 有许多子命令<ul>
+<li><code>i args</code>：打印函数参数</li>
+<li><code>i thread</code>：查看线程，<code>*</code>代表当前线程</li>
+</ul>
+</li>
+</ul>
+<h4 id="打印内存信息"><a href="#打印内存信息" class="headerlink" title="打印内存信息"></a>打印内存信息</h4><p>命令格式: <code>x/&lt;num&gt;&lt;type&gt;&lt;size&gt; &lt;address&gt;</code>，含义是从起始地址<code>address</code>开始读<code>size</code>大小的内存，以<code>type</code>的类型打印值。重复<code>num</code>次，<code>num&gt;0</code>则每次地址递增，<code>num&lt;0</code>则每次地址递减。</p>
+<ul>
+<li><code>num</code>: 可以不指定，默认是1</li>
+<li><code>type</code>:<ul>
+<li><code>a</code>: address</li>
+<li><code>t</code>: binary</li>
+<li><code>x</code>: 十六进制格式, <code>z</code>: 十六进制，zero padded on the left.</li>
+<li><code>d</code>: 十进制格式, <code>ud</code>: unsigned 十进制</li>
+<li><code>f</code>: float</li>
+<li><code>c</code>: 字符</li>
+<li><code>s</code>: 字符串</li>
+<li><code>i</code>: instruction 汇编指令</li>
+</ul>
+</li>
+<li><code>size</code>: <ul>
+<li><code>b</code>: byte</li>
+<li><code>h</code>: halfword</li>
+<li><code>w</code>: word</li>
+<li><code>giant</code>: giant, 8 bytes</li>
+</ul>
+</li>
+</ul>
+<h4 id="汇编"><a href="#汇编" class="headerlink" title="汇编"></a>汇编</h4><p>打印汇编指令：<code>disas [/r|/m|/s] (&lt;函数位置&gt;|&lt;开始地址&gt;[, &lt;结束地址&gt;])</code>: </p>
+<ul>
+<li>位置格式是：<code>[文件名称::]&lt;函数名&gt;</code>，默认是当前文件。</li>
+<li><code>/r</code>代表会展示指令的16进制形式。</li>
+<li><code>/m</code>:代表会打印对应的源码，并且指令顺序是按源码行的顺序来的。(regardless of any optimization that is present。This modifier hasn’t proved useful in practice and is deprecated in favor of &#x2F;s.)</li>
+<li><code>/s</code>：代表会打印对应的源码，但是顺序是按指令本身的顺序来的。</li>
+</ul>
+<h3 id="参数"><a href="#参数" class="headerlink" title="参数"></a>参数</h3><p>可以通过 <code>set &lt;参数名称&gt; &lt;value&gt;</code> 设置参数。使用 <code>show &lt;参数名称&gt;</code>查看参数值。</p>
+<h4 id="多线程调试-scheduler-locking"><a href="#多线程调试-scheduler-locking" class="headerlink" title="多线程调试 scheduler-locking"></a>多线程调试 <code>scheduler-locking</code></h4><p>进入断点时这个值才能修改。</p>
+<ul>
+<li><code>off</code>：默认值, 在断点处继续往下运行时所有线程均可执行。（注意：当进入断点时所有线程都是不可执行的）</li>
+<li><code>on</code>：在断点处继续往下运行时仅当前被调试线程可执行。</li>
+<li><code>step</code>：用的较少，这里不展开。</li>
+</ul>
+<p>测试用代码(<code>gcc a.c -g -lpthread -o a.out</code>)：</p>
+<figure class="shiki c"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;stdio.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;pthread.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;unistd.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">static</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> a </span><span style="color: #C678DD">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">static</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> b </span><span style="color: #C678DD">=</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #C678DD">void</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">*</span><span style="color: #61AFEF">runnable1</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #C678DD">*</span><span style="color: #E06C75; font-style: italic">args</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">while</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        a</span><span style="color: #C678DD">++</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">sleep</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">void</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">*</span><span style="color: #61AFEF">runnable2</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #C678DD">*</span><span style="color: #E06C75; font-style: italic">args</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">while</span><span style="color: #ABB2BF"> (</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        b</span><span style="color: #C678DD">++</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">sleep</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">main</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">void</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">pthread_t</span><span style="color: #ABB2BF"> t1, t2;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pthread_create</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">&amp;</span><span style="color: #ABB2BF">t1, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">, runnable1, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pthread_create</span><span style="color: #ABB2BF">(</span><span style="color: #C678DD">&amp;</span><span style="color: #ABB2BF">t2, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">, runnable2, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pthread_join</span><span style="color: #ABB2BF">(t1, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #61AFEF">pthread_join</span><span style="color: #ABB2BF">(t2, </span><span style="color: #D19A66">NULL</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<p>测试过程: </p>
+<ul>
+<li>给<code>a++</code>那行添加断点，运行。</li>
+<li>进入断点，查看当前的参数确认是<code>off</code>。打印一下<code>a</code>和<code>b</code>的值，假设是<code>a = 0, b = 1</code>。然后继续运行，又进入断点。此时打印值可能会是<code>a = 1, b = 3</code>，说明继续执行时两个线程都在执行。</li>
+<li>然后再设置参数为<code>on</code>，继续运行。此时打印值会是<code>a = 2, b = 3</code>，说明这次只有a线程执行了。</li>
+</ul>
+<h4 id="多进程调试"><a href="#多进程调试" class="headerlink" title="多进程调试"></a>多进程调试</h4><ul>
+<li><code>detach-on-fork</code>: 默认<code>on</code>，当设置为<code>off</code>时，父子进程都会attach（即之前提到的进入断点）</li>
+<li><code>follow-fork-mode</code>: 当<code>detach-on-fork</code>为<code>on</code>时，执行进程fork时，由这个参数控制attach到<code>parent</code>还是<code>child</code>。默认是 <code>parent</code>。</li>
+<li><code>i inferiors</code>：查看进程</li>
+<li><code>inferior &lt;序号&gt;</code> 切换调试的进程</li>
+</ul>
+<p>测试用例子：</p>
+<figure class="shiki c"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;unistd.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;stdio.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;sys/syscall.h&gt;</span></span>
+<span class="line"><span style="color: #C678DD">#include</span><span style="color: #ABB2BF"> </span><span style="color: #98C379">&lt;stdlib.h&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">pid_t</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">gettid</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">syscall</span><span style="color: #ABB2BF">(__NR_gettid);</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span>
+<span class="line"><span style="color: #C678DD">int</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">main</span><span style="color: #ABB2BF">() {</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">pid_t</span><span style="color: #ABB2BF"> pid;</span></span>
+<span class="line"><span style="color: #ABB2BF">    pid </span><span style="color: #C678DD">=</span><span style="color: #ABB2BF"> </span><span style="color: #61AFEF">fork</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">if</span><span style="color: #ABB2BF"> (pid </span><span style="color: #C678DD">&lt;</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">exit</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">1</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    } </span><span style="color: #C678DD">else</span><span style="color: #ABB2BF"> </span><span style="color: #C678DD">if</span><span style="color: #ABB2BF"> (pid </span><span style="color: #C678DD">==</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">) {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">printf</span><span style="color: #ABB2BF">(</span><span style="color: #98C379">&quot;in child, pid: </span><span style="color: #D19A66">%d</span><span style="color: #98C379">, tid:</span><span style="color: #D19A66">%d</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #61AFEF">getpid</span><span style="color: #ABB2BF">(), </span><span style="color: #61AFEF">gettid</span><span style="color: #ABB2BF">());</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">exit</span><span style="color: #ABB2BF">(</span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #ABB2BF">    } </span><span style="color: #C678DD">else</span><span style="color: #ABB2BF"> {</span></span>
+<span class="line"><span style="color: #ABB2BF">        </span><span style="color: #61AFEF">printf</span><span style="color: #ABB2BF">(</span><span style="color: #98C379">&quot;in parent, pid: </span><span style="color: #D19A66">%d</span><span style="color: #98C379">, tid:</span><span style="color: #D19A66">%d</span><span style="color: #56B6C2">\n</span><span style="color: #98C379">&quot;</span><span style="color: #ABB2BF">, </span><span style="color: #61AFEF">getpid</span><span style="color: #ABB2BF">(), </span><span style="color: #61AFEF">gettid</span><span style="color: #ABB2BF">());</span></span>
+<span class="line"><span style="color: #ABB2BF">    }</span></span>
+<span class="line"><span style="color: #ABB2BF">    </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #ABB2BF">}</span></span></code></pre></div></div></figure>
+
+<ul>
+<li>首先在fork的后一行添加断点。运行一次，此时会先打印出<code>in child</code>。说明目前调试的是父进程，<code>c</code>继续运行。</li>
+<li>修改<code>follow-fork-mode</code>为child。运行一次，此时会先打印出<code>in parent</code>。说明目前调试的是子进程，<code>c</code>继续运行。</li>
+<li>再修改<code>detach-on-fork</code>为<code>off</code>，运行一次。此时会先进入parent，但是child已经创建了并且也是attach的。使用<code>i inferiors</code>查看当前attach的进程，此时会有两个进程。通过<code>inferior &lt;子进程序号&gt;</code> 可以切换到子进程。会发现子进程并不是停留在fork的下一行，而是在fork函数内部。</li>
+</ul>
+<h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><p>首先需要了解一下ptrace系统调用。</p>
+<h4 id="ptrace系统调用"><a href="#ptrace系统调用" class="headerlink" title="ptrace系统调用"></a>ptrace系统调用</h4><p>函数签名：<code>long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)</code></p>
+<ul>
+<li>request：指定执行的动作<ul>
+<li>PTRACE_TRACEME: 让父进程追踪当前进程</li>
+<li>PTRACE_PEEKTEXT、PTRACE_PEEKDATA：读取进程内存</li>
+<li>PTRACE_POKETEXT、PTRACE_POKEDATA：修改进程内存</li>
+<li>PTRACE_CONT：让进程继续执行</li>
+<li>PTRACE_GETSIGINFO: 获取进程的signal信息</li>
+<li>PTRACE_SINGLESTEP: 单步执行一条汇编指令</li>
+<li>PTRACE_ATTACH: 当前进程动态地attach到目标进程</li>
+</ul>
+</li>
+<li>pid：被追踪的进程的进程号</li>
+<li>addr：这个参数一般是地址值，指示要读取或写入的进程内存地址。</li>
+<li>data：根据 request 的类型，这个参数可能用于提供数据，例如写入目标进程的内存，或者用于接收某些类型的输出。</li>
+</ul>
+<p>gdb 通过预先指定elf文件进行调试：</p>
+<ol>
+<li>gdb 运行被调试的程序时是通过fork生成子进程，然后子进程调用exec替换运行程序为被调试的程序。</li>
+<li>随后子进程会调用ptrace PTRACE_TRACEME 让gdb能够trace被调试程序。</li>
+</ol>
+<p>断点的原理：</p>
+<ul>
+<li>当设置一个断点时会将断点所在的汇编指令替换为<code>INT 3</code>指令，当被调试的进程执行到这个命令时，会收到中断信号<code>SIGTRAP</code>被暂停。而父进程先前执行的waitpid会返回，通过PTRACE_GETSIGINFO能够拿到是否是由<code>SIGTRAP</code>。如果是，说明进入了断点，此时响应用户的操作如获取被调试进程的相关信息。并且设置断点的同时gdb会将原指令保存起来，当继续运行时则将这个指令写回。读取指令需要用到PTRACE_PEEKDATA、而写入用到PTRACE_POKEDATA。</li>
+</ul>
+<h4 id="DWARF"><a href="#DWARF" class="headerlink" title="DWARF"></a>DWARF</h4><p>它是gcc编译时记录在elf文件中的用于调试的信息，调试器能利用这些数据找到指令与源码行的关系。</p>
+<p><code>dwarfdump elf文件</code> 可以查看elf文件中的dwarf信息。</p>
+<p>另外dwarf信息可以存放在独立的文件中，调试的时候引入，这样就不用增大elf文件的大小。</p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%B7%A5%E5%85%B7">工具</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E8%B0%83%E8%AF%95">调试</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

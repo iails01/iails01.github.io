@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>ZGC 垃圾收集器 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=Java,JVM,GC>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">ZGC 垃圾收集器</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-06-08</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h3><p>JDK11中推出。<br>GC 停顿时间很短，不分代（在JDK21中引入了分代模式）。</p>
+<h3 id="怎么分配内存的"><a href="#怎么分配内存的" class="headerlink" title="怎么分配内存的"></a>怎么分配内存的</h3><p>内存块分为三种类型：</p>
+<ul>
+<li>small：2MB，存放小于256KB的对象</li>
+<li>medium：32MB,存放<code>[256KB,4MB)</code>的对象</li>
+<li>large：大小不固定，2*n MB(n&gt;&#x3D;2)。为单一对象单独分配，存放大于等于4MB的对象</li>
+</ul>
+<p>ZGC 使用64位的地址，不允许开启指针压缩。JVM的指针压缩是指，使用32位地址实现更大容量的内存管理。比如32位原本能表示2^32 byte的内存，每个地址表示一个byte，指针压缩就是让一个地址表示多个byte，并且在对象不是整数倍的情况给对象加上padding。</p>
+<p>ZGC的地址是18位未使用+4位标记+42位对象地址。(称为染色指针，42位地址能管理最多4TB，ZGC也支持43和44的)。而其它GC gc相关标记是放在对象头的markword中的。</p>
+<p>4位标记分别是：</p>
+<ul>
+<li>finalizable</li>
+<li>remapped</li>
+<li>marked1</li>
+<li>marked2</li>
+</ul>
+<p>remapped、marked1、marked2是指针的三种颜色。</p>
+<p>当创建一个对象后，它会有三个地址，分别是这三种颜色。</p>
+<p>当从堆中读取一个引用的时候（例如读取某个对象的某个引用字段），JVM会插入load barrier，返回实际的引用，因为这个引用所指向的对象可能在gc过程中被移动了。</p>
+<h3 id="怎么回收内存的"><a href="#怎么回收内存的" class="headerlink" title="怎么回收内存的"></a>怎么回收内存的</h3><ul>
+<li>初始标记（STW）: 标记 GC Roots</li>
+<li>并发标记：初始状态下对象都是remapped的地址，当并发标记中如果对象的引用发生变化，那地址使用的是marked。所以这个阶段结束后marked的对象都是活跃对象。</li>
+<li>再标记（STW）：</li>
+<li>并发转移准备：确定需要转移的区块</li>
+<li>初始转移（STW）：转移GC Roots的对象</li>
+<li>并发转移：如果对象被访问过，那么标记为remapped</li>
+</ul>
+<h3 id="相关的-JVM-参数"><a href="#相关的-JVM-参数" class="headerlink" title="相关的 JVM 参数"></a>相关的 JVM 参数</h3><p>ZGC的参数简单。</p>
+<ul>
+<li>堆大小： -Xmx。当分配速率过高，超过回收速率，造成堆内存不够用时，会触发Allocation Stall，这个类Stall会减缓当前的用户线程。因此，当我们在GC日志中看到Allocation Stall，通常可以认为堆空间偏小或者concurrent gc threads数偏小。</li>
+<li>GC触发时机： ZAllocatioSpike Tolerance，ZCollectionInterval。ZAllocationSpikeTolerance 用来估算当前的堆内存分配速率，在当前剩余的堆内存下，ZAllocationSpike Tolerance越大，估算的达到OOM的时间越快，ZGC就会更早地进行触发GC。ZCollectionInterval用来指定GC发生的间隔，以秒位单位触发GC</li>
+<li>GC线程： ParallerGCThreads，ConcGCThreads。ParallelGCThreads是设置STW任务的GC线程数，默认为CPU个数的60%；ConcGCThreads是并发阶段GC线程的数目，默认为CPU个数的12.5%。</li>
+</ul>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a target="_blank" rel="noopener" href="https://javadoop.com/post/zgc">https://javadoop.com/post/zgc</a></p>
+<p><a target="_blank" rel="noopener" href="https://mikechen.cc/16719.html">https://mikechen.cc/16719.html</a></p>
+<p><a target="_blank" rel="noopener" href="http://www.lihuibin.top/archives/a87613ac/#ZGC%E8%AF%9E%E7%94%9F%E8%83%8C%E6%99%AF">http://www.lihuibin.top/archives/a87613ac/#ZGC%E8%AF%9E%E7%94%9F%E8%83%8C%E6%99%AF</a></p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Java">Java</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=JVM">JVM</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=GC">GC</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

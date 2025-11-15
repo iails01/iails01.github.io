@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>G1 垃圾收集器 - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=Java,JVM,GC>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">G1 垃圾收集器</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-06-05</span> <br>
+  </div>
+  <div class="post-content">
+    <h3 id="GC-算法类型"><a href="#GC-算法类型" class="headerlink" title="GC 算法类型"></a>GC 算法类型</h3><blockquote>
+<p>GC复制算法和标记-压缩算法的疑问：<a target="_blank" rel="noopener" href="https://hllvm-group.iteye.com/group/topic/28594">https://hllvm-group.iteye.com/group/topic/28594</a></p>
+</blockquote>
+<p>复制收集：扫描对象，如果判断这个对象是存活的，那么将这个对象复制到一个空闲位置。这个算法需要提前预留空闲内存，因为复制的时候需要确保目的内存是空闲的，由于是对一个个对象进行扫描，没办法判断目的内存是否空闲。<br>标记压缩：扫描整个回收的区域，在回收前先标记所有存活的对象，将存活的对象一个个复制到一片连续的内存区域。这种情况下就不需要预留空闲内存，因为对象的存活状态都是已知的，不存活的对象可以直接覆盖。</p>
+<h3 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h3><ol>
+<li>将内存分为多个小块区域，以区域作为粒度来划定 Eden、Survivor、Old。区域的大小是 <code>1MBi</code> ~ <code>32MBi</code>，默认的区域数量是 <code>2048</code> 左右。</li>
+<li>包含一个独特的 Mixed GC，既回收年轻代也回收老年代。</li>
+<li>回收内存时会考虑 GC 停顿时间，按最有回收价值的区域按顺序回收。</li>
+</ol>
+<h3 id="怎么分配内存的"><a href="#怎么分配内存的" class="headerlink" title="怎么分配内存的"></a>怎么分配内存的</h3><p>将内存分为多个小块区域，以区域作为粒度来划定 Eden、Survivor、Old。区域的大小是 <code>1MBi</code> ~ <code>32MBi</code>，默认的区域数量是 <code>2048</code> 左右。</p>
+<p>当某个对象的大小超过区域 size 的一半，那么会给这个对象分配专用的连续的 region 来存储它（Humongous Object）。</p>
+<h3 id="怎么回收内存的？"><a href="#怎么回收内存的？" class="headerlink" title="怎么回收内存的？"></a>怎么回收内存的？</h3><h4 id="Young-GC-YGC"><a href="#Young-GC-YGC" class="headerlink" title="Young GC(YGC)"></a>Young GC(YGC)</h4><p>只回收年轻代，使用复制收集算法。</p>
+<p>当 Eden 区满了之后触发。</p>
+<p>将存活对象复制到空闲区域，并将空闲区域设置为 Survivor.</p>
+<h4 id="Mixed-GC-OGC-实际是-Old-区的回收"><a href="#Mixed-GC-OGC-实际是-Old-区的回收" class="headerlink" title="Mixed GC(OGC, 实际是 Old 区的回收)"></a>Mixed GC(OGC, 实际是 Old 区的回收)</h4><p>当 Old 区使用量的占整个堆的比例为 <code>-XX:InitiatingHeapOccupancyPercent</code> 时，并且进入 YGC，那么会进行 Mixed GC。</p>
+<p>此时的 YGC 会执行初始标记（initial marking），YGC 后存活对象都在 survivor 中，所以接着的并发标记（concurrent marking）只标记 old 区。</p>
+<p>并发标记完毕后，会执行重新标记（remark 需要 STW），最后将部分 old 区的存活对象复制到连续的空闲区域，并且将这些对象对应的 region 设置为空闲。</p>
+<h4 id="Full-GC-FGC"><a href="#Full-GC-FGC" class="headerlink" title="Full GC(FGC)"></a>Full GC(FGC)</h4><p>使用 Serial Old 单线程方式回收整个堆，整个过程都需要 STW。</p>
+<h3 id="相关的-JVM-参数"><a href="#相关的-JVM-参数" class="headerlink" title="相关的 JVM 参数"></a>相关的 JVM 参数</h3><p><a target="_blank" rel="noopener" href="https://www.oracle.com/technetwork/java/javase/tech/vmoptions-jsp-140102.html">https://www.oracle.com/technetwork/java/javase/tech/vmoptions-jsp-140102.html</a></p>
+<figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf">#  JDK 9开始为默认垃圾回收器</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:+UseG1GC</span></span>
+<span class="line"><span style="color: #abb2bf"></span></span>
+<span class="line"><span style="color: #abb2bf"># 响应时间优先，建议值，设置最大GC停顿时间(GC pause time)指标(target). 这是一个软性指标(soft goal)</span></span>
+<span class="line"><span style="color: #abb2bf">#  JVM 会尽力去达成这个目标. 所以有时候这个目标并不能达成</span></span>
+<span class="line"><span style="color: #abb2bf"># G1会尝试调整Young区的块数来达到这个值，如果这个值很小，那么为了达到这个目标，G1可能会让Young区大小减小。</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:MaxGCPauseMillis</span></span>
+<span class="line"><span style="color: #abb2bf"># 响应时间优先，GC的停顿间隔时间，默认0</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:GCPauseIntervalMillis</span></span>
+<span class="line"><span style="color: #abb2bf"># 吞吐量优先，设置JVM吞吐量要达到的目标值， GC时间占用程序运行时间的百分比的差值，默认是 99</span></span>
+<span class="line"><span style="color: #abb2bf"># 也就应用程序线程应该运行至少99%的总执行时间，GC占 1%</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:GCTimeRatio=99</span></span>
+<span class="line"><span style="color: #abb2bf"></span></span>
+<span class="line"><span style="color: #abb2bf"># 并发回收器（STW   YGC）的工作线程数量，默认CPU所支持的线程数，如果CPU所支持的线程数大于8，则 默认 8 + (logical_processor -8)*(5/8)</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:ParallelGCThreads</span></span>
+<span class="line"><span style="color: #abb2bf"># G1 并发标记线程数量</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:ConcGCThreads</span></span>
+<span class="line"><span style="color: #abb2bf"></span></span>
+<span class="line"><span style="color: #abb2bf"># 启动并发GC时的堆内存占用百分比. G1用它来触发并发GC周期,基于整个堆的使用率,而不只是某一代内存的使用比例。默认45%</span></span>
+<span class="line"><span style="color: #abb2bf"># 当堆存活对象占用堆的45%，就会启动G1 中Mixed GC</span></span>
+<span class="line"><span style="color: #abb2bf"># 这个参数貌似有bug，会基于`老年代使用量/总堆内存`的占比而不是`堆使用量/总堆内存`的占比。https://bugs.java.com/bugdatabase/view_bug.do?bug_id=8151176</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:InitiatingHeapOccupancyPercent</span></span>
+<span class="line"><span style="color: #abb2bf"># G1 分区大小，建议逐渐增大该值，1 2 4 8 16 32。</span></span>
+<span class="line"><span style="color: #abb2bf"># 随着size增加，垃圾的存活时间更长，GC间隔更长，但每次GC的时间也会更长。ZGC做了改进（动态区块大小）</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:G1HeapRegionSize</span></span>
+<span class="line"><span style="color: #abb2bf"></span></span>
+<span class="line"><span style="color: #abb2bf"># 新生代最小比例，默认为5%</span></span>
+<span class="line"><span style="color: #abb2bf"># -XX:G1NewSizePercent （JDK8u23已经移除 https://www.oracle.com/technical-resources/articles/java/g1gc.html）</span></span>
+<span class="line"><span style="color: #abb2bf"># 新生代最大比例，默认为60%</span></span>
+<span class="line"><span style="color: #abb2bf"># -XX:G1MaxNewSizePercent （JDK823已经移除 https://www.oracle.com/technical-resources/articles/java/g1gc.html）</span></span>
+<span class="line"><span style="color: #abb2bf"># G1 新生代初始大小，默认为5%</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:NewSize</span></span>
+<span class="line"><span style="color: #abb2bf"># G1 新生代最大大小</span></span>
+<span class="line"><span style="color: #abb2bf">-XX:MaxNewSize</span></span></code></pre></div></div></figure>
+
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a target="_blank" rel="noopener" href="https://ylgrgyq.com/understanding-g1-gc.html">https://ylgrgyq.com/understanding-g1-gc.html</a></p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Java">Java</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=JVM">JVM</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=GC">GC</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

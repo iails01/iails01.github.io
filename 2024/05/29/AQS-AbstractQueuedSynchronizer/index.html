@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>AQS (AbstractQueuedSynchronizer) - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=Java,并发,AQS>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">AQS (AbstractQueuedSynchronizer)</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-05-29</span> <br>
+  </div>
+  <div class="post-content">
+    <h2 id="AbstractQueuedSynchronizer"><a href="#AbstractQueuedSynchronizer" class="headerlink" title="AbstractQueuedSynchronizer"></a>AbstractQueuedSynchronizer</h2><h3 id="字段"><a href="#字段" class="headerlink" title="字段"></a>字段</h3><ul>
+<li>exclusiveOwnerThread：The current owner of exclusive mode synchronization. 从父类 <code>AbstractOwnableSynchronizer</code> 继承而来。</li>
+<li><code>head</code>，当队列未初始化时为<code>null</code>；不为<code>null</code>时代表同步队列头节点，并不代表的是已经获取了资源的线程或者已经释放了资源的线程或者是aqs初始化时设置的空节点</li>
+<li><code>tail</code>，当队列未初始化时为<code>null</code>；不为<code>null</code>时代表最后一个节点</li>
+</ul>
+<h4 id="node字段"><a href="#node字段" class="headerlink" title="node字段"></a>node字段</h4><ul>
+<li>waitStatus：等待状态。</li>
+</ul>
+<p>CANCELLED：值为 1，在同步队列中等待的线程等待超时或被中断，需要从同步队列中取消该 Node 的结点，其结点的 waitStatus 为 CANCELLED，即结束状态，进入该状态后的结点将不会再变化。</p>
+<p>SIGNAL：值为 - 1，结点释放锁，会通知后继节点运行,每个节点在阻塞前，需要标记其前驱节点的状态为 SIGNAL。</p>
+<p>CONDITION：值为 - 2，与 Condition 相关，该标识的<strong>节点处于另一个队列中</strong>（等待队列），结点的线程等待在 Condition 上，当其他线程调用了 Condition 的 signal() 方法后，CONDITION 状态的结点将从等待队列转移到同步队列中并且状态设置为0，等待获取同步锁。</p>
+<p>PROPAGATE：值为 - 3，与共享模式相关，在共享模式中，该状态标识结点的线程处于可运行状态。</p>
+<p>0 状态：值为 0，代表初始化状态。</p>
+<ul>
+<li>prev：前驱节点</li>
+<li>next：后继节点</li>
+<li>thread：当前节点代表的线程</li>
+<li>nextWaiter：Node 既可以作为<strong>同步队列</strong>节点使用，也可以作为 Condition 的<strong>等待队列</strong>节点使用 (将会在后面讲 Condition 时讲到)。在作为同步队列节点时，nextWaiter 可能有两个值：<code>Node.EXCLUSIVE = new Node()</code>、<code>Node.SHARED = null</code> 标识当前节点是独占模式还是共享模式；在作为等待队列节点使用时，nextWaiter 保存后继节点。</li>
+</ul>
+<p>CLH（Craig, Landin, and Hagersten）队列+CONDITION队列</p>
+<h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><ul>
+<li><p>state 的访问方式有三种:<code>getState()</code>、<code>setState()</code>、<code>compareAndSetState()</code>，在AQS中都不会被调用，这说明state是提供给用户使用的。一般都在下面这些扩展方法中修改和访问。</p>
+</li>
+<li><p>自定义同步器实现时主要实现以下几种方法：</p>
+<ul>
+<li><code>isHeldExclusively():boolean</code>：该线程是否正在独占资源。只有用到 condition 才需要去实现它。比如在<code>condition.signal()</code>时需要判断是否是独占的，不是独占的不能signal。</li>
+<li><strong><code>tryAcquire(int):boolean</code></strong> ：获取独占资源(修改<code>state</code>)，如果获取成功返回true，否则返回 false。获取独占资源的入口方法： <strong><code>acquire(int a):void</code></strong> 中调用，在此方法中如果tryAcquire失败会执行可能阻塞的操作： <strong><code>acquireQueued(Node)</code></strong> ，会重试<code>tryAcquire(int):boolean</code>。</li>
+<li><strong><code>tryRelease(int):boolean</code></strong> ：返回true代表成功，将继续执行doRelease，否则将不执行，release将直接返回。要确保release成功得在里面循环重试。</li>
+<li><strong><code>tryAcquireShared(int a):int</code></strong> ：如果以共享方式获取<code>a</code>个资源，将会剩下几个(<code>r</code>)。返回值在AQS里只用于<code>r &lt; 0</code>或<code>r &gt;= 0</code>的判断，用于代表是否需要开始执行可能会阻塞的获取操作（ <strong><code>doAcquireShared(int a):void</code></strong> ，可能获取失败&#x2F;成功），并不参与计算或存储。获取共享资源的入口在 <strong><code>acquireShared(int a):void</code></strong> ，方法的逻辑：一般<code>r &lt; 0</code>代表着state修改失败，<code>r &gt;= 0</code>代表state修改成功，如果state用户代表<code>Semaphore</code>中的资源数，那么<code>r &gt;= 0</code>代表我已经取完了<code>a</code>个资源（<code>state -= a</code>），之后直接返回即可。而如果<code>r &lt; 0</code>那么要执行<code>doAcquireShared(int a)</code>，如果资源足够那么会获取成功，否则会阻塞等待被唤醒，唤醒后会重试<code>tryAcquireShared(int a):int</code>。</li>
+</ul>
+</li>
+<li><p><strong><code>tryReleaseShared(int a):boolean</code></strong> ：只在释放共享资源的入口方法： <strong><code>releaseShared(int a):boolean</code></strong> 中调用。释放资源(修改<code>state</code>)，如果允许唤醒后续等待结点（ <strong><code>doReleaseShared():void</code></strong> ）返回 true（比如释放成功了），否则返回 false（比如释放失败了）。</p>
+</li>
+</ul>
+<h3 id="方法"><a href="#方法" class="headerlink" title="方法"></a>方法</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// 阻塞获取，如果中途被interrupt，那么当方法返回时线程的interrupted状态被设置成true</span></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">acquire</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 阻塞获取，如果中途被interrupt将取消获取，并抛出异常InterruptedException，interrupted状态会被清除</span></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">acquireInterruptibly</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 进行也是阻塞获取，只是在当前时间超过截止时间时必定会自动醒来，此时如果还没有获取成功则取消获取并返回false。如果中途被interrupt也将取消获取，并抛出异常InterruptedException，interrupted状态会被清除</span></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">tryAcquireNanos</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #C678DD">long</span><span style="color: #E06C75">)</span><span style="color: #C678DD">:</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 进行一次资源获取的尝试</span></span>
+<span class="line"><span style="color: #C678DD">protected</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">tryAcquire</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75">)</span><span style="color: #C678DD">:</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 以及以上所有方法的shared版本</span></span></code></pre></div></div></figure>
+
+
+
+
+
+<h3 id="独占式流程"><a href="#独占式流程" class="headerlink" title="独占式流程"></a>独占式流程</h3><p>同一时间只能有一个线程持有锁</p>
+<p>队列入队时修改<code>tail</code>，队列出队时修改<code>head</code>(实际是在新线程获取了锁后修改<code>head</code>为当前线程)。</p>
+<ol>
+<li><code>acquire</code>：<code>tryAcquire</code>失败时将本线程入队，等待被唤醒。当自己被唤醒时，代表自己在同步队列中是最前的一个节点，并且是唯一一个被唤醒的节点。这个节点醒来后将不断重试<code>tryAcquire</code>（由于只有这个线程是被唤醒的，这个线程只需要与那些刚进入<code>acquire</code>方法的线程争夺资源）并在成功时将自己作为<code>head</code>（也就是将之前已经执行完的线程节点出队）。</li>
+<li><code>release</code>：需要唤醒队列最前面的一个等待的节点，让这个节点与刚进来的线程争夺资源</li>
+<li><code>cancel</code>：当线程在队列中，并且在争夺资源的过程中抛出异常就会进入<code>cancelAcquire</code>。在这个方法中，假设本线程的节点是<code>node</code>，它会：<ol>
+<li>压缩<code>node</code>的<code>prev</code>，跳过已经取消的节点<code>cancelNodes</code>（由于自己的当前状态不是<code>cancel</code>，所以可以安全修改<code>prev</code>）</li>
+<li>将自己设置成<code>cancel</code></li>
+<li>尝试设置<code>node.prev.next = node.next</code>，跳过自己以及刚才所有的<code>cancelNodes</code>。这里不需要保证修改成功，如果修改失败，那意味着自己已经是<code>tail</code>并且其它线程入队将自己连接到了<code>node</code>的后面。如果自己是最后一个，那么修改<code>tail</code>为前一个节点</li>
+</ol>
+</li>
+</ol>
+<h4 id="acquire-int"><a href="#acquire-int" class="headerlink" title="acquire(int)"></a>acquire(int)</h4><p>独占模式下线程获取共享资源的入口</p>
+<figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">acquire</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> arg) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">tryAcquire</span><span style="color: #E06C75">(arg) </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// 尝试去获取资源,默认没提供实现,true代表获取成功</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// addwaiter 将本线程作为一个独占模式的Node添加到同步队列后面</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 若队列没有head则新建一个空的Node作为head，再添加到同步队列后面</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 若获取资源成功且被中断过，自己中断一次</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">acquireQueued</span><span style="color: #E06C75">(</span><span style="color: #61AFEF">addWaiter</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">EXCLUSIVE</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> arg)) </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">selfInterrupt</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 在队列里循环等待条件满足，若条件满足则不断尝试获取资源,</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 这里的条件指的是前驱结点是head,并且获取锁的park期间会清除中断，</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 所以返回值为true代表发生过中断</span></span>
+<span class="line"><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">acquireQueued</span><span style="color: #E06C75">(</span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> arg) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> failed </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">try</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> interrupted </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> ) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 每次取出前驱，判断前驱是否是head，若是则tryAcquire，</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 成功后设置自己为head，把原先的head删掉</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> p </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">predecessor</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (p </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> head </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">tryAcquire</span><span style="color: #E06C75">(arg)) {</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// setHead总是在成功获取资源后设置</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #61AFEF">setHead</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #E5C07B">p</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// help GC</span></span>
+<span class="line"><span style="color: #E06C75">                failed </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> interrupted</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            }</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 判断是否需要park</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">shouldParkAfterFailedAcquire</span><span style="color: #E06C75">(p</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> node) </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #61AFEF">parkAndCheckInterrupt</span><span style="color: #E06C75">())</span></span>
+<span class="line"><span style="color: #E06C75">                interrupted </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">finally</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (failed)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #61AFEF">cancelAcquire</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 独享与共享模式都用到这个方法</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// node是当前线程所在节点</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">static</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">shouldParkAfterFailedAcquire</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> pred</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> ws </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 若前驱为signal说明它release后会unpark后继，这时可以park</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (ws </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">SIGNAL</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (ws </span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">) { </span><span style="color: #7F848E; font-style: italic">// 1: canceled状态的节点</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 删除前面的canceled的节点，直到找到非canceled节点，对prev关系进行压缩</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">do</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">prev</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> pred </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">prev</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        } </span><span style="color: #C678DD">while</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 若是其它状态的将其改为signal，不理解为什么不管是否设置成功都返回false，明明设置成功可以返回true的（注释写着 Caller will need to retry to make sure it cannot acquire before parking. 保证在park前自己是获取不到资源的）</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 这里使用cas是为了避免在pred已经进入cancelAcquire的情况下，把已经修改成cancel状态的pred节点又改成了signal</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// cas成功代表pred的当前状态不是cancel，可以成功park（这就是signal状态存在的意义）</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 如果在这里执行cas成功，有两种可能，但是都能保证一定会重新进入shouldParkAfterFailedAcquire方法，并且返回true，从而进行park操作。</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">//   （1），前置节点没有变成head，那么必然重新进入此方法并返回true</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">//   （2），前置节点变成head，那么由于前置节点持有资源且为独享资源，所以tryAcquire理应返回false，也必然进入此方法并返回true</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">compareAndSetWaitStatus</span><span style="color: #E06C75">(pred</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> ws</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">SIGNAL</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<blockquote>
+<p>响应中断的acquire操作叫doAcquireInterruptibly和这里的acquireQueued是对应的只不过它会抛出异常，而不是通过返回值来判断是否被中断过</p>
+</blockquote>
+<p>线程释放资源</p>
+<figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">release</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> arg) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 如果tryRelease返回true则unpark当前节点的后继或从后往前找一个未被取消的节点</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">tryRelease</span><span style="color: #E06C75">(arg)) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> h </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> head</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 0 说明已经unpark了或者没有需要unpark的后继节点</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (h </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">h</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #61AFEF">unparkSuccessor</span><span style="color: #E06C75">(h)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 如果是release进入的此方法，那么node就是head</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 如果是cancelAcquire进入的，那么node此时已经是cancel状态，并且前面没有singl节点，所有才需要自己来唤醒后面的节点（如果有的话）（在这种情况下实际是head节点已经结束了唤醒了node，轮到node tryAcquire时抛出了异常导致的cancelAcquire）</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 也就是说进入这个方法意味着node的前面不存在signal = -1的节点</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">unparkSuccessor</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> ws </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// cancelAcquire进入的不会执行</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (ws </span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 表示自己已经unpark过node的后面一个节点，</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">compareAndSetWaitStatus</span><span style="color: #E06C75">(node</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> ws</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">/*</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * unpark后继节点，如果为null或者被取消了(只有cancelled为正数)则从后往前找最前面的一个未被取消的节点</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     s = null的原因是，在addWaiter中修改tail时使用这样的代码（node是新创建的对象，node.next为null）</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     		if (compareAndSetTail(pred, node)) {</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">                pred.next = node;</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">                return node;</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">            }</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">      当刚刚设置tail，未让pred.next指向tail时，pred.next = null</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     */</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> s </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (s </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">s</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        s </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> t </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> tail</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> t </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> t </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> t </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">t</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">prev</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">t</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&lt;=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">                s </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> t</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (s </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">LockSupport</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">unpark</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">s</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">thread</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<ul>
+<li><p>tryAcquire：</p>
+</li>
+<li><p>addWaiter(mode)：将本线程作为一个独占模式的Node添加到同步队列</p>
+</li>
+<li><p>acquireQueued()：在队列里循环等待条件满足，若条件满足则不断尝试获取资源,这里的条件指的是前驱结点是head,并且获取锁的park期间会清除中断，所以返回值为true代表发生过中断，获取资源后自己设置中断标记</p>
+</li>
+</ul>
+<h4 id="关键方法"><a href="#关键方法" class="headerlink" title="关键方法"></a>关键方法</h4><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// 向同步队列添加节点</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// mode：代表节点的初始状态</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">addWaiter</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> mode) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">Node</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">currentThread</span><span style="color: #ABB2BF">(),</span><span style="color: #E06C75"> mode)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 先快速进行一次入队尝试，如果不行就执行enq进行入队过程</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> pred </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> tail</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (pred </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">prev</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> pred</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">compareAndSetTail</span><span style="color: #E06C75">(pred</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> node)) {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #61AFEF">enq</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">enq</span><span style="color: #E06C75">(</span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #ABB2BF">;;</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> t </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> tail</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (t </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">) { </span><span style="color: #7F848E; font-style: italic">// Must initialize</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">compareAndSetHead</span><span style="color: #E06C75">(</span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">Node</span><span style="color: #E06C75">()))</span></span>
+<span class="line"><span style="color: #E06C75">                tail </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> head</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">prev</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> t</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">compareAndSetTail</span><span style="color: #E06C75">(t</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> node)) {</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #E5C07B">t</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> t</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            }</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 独享模式时：如果node被其它线程所唤醒后在执行tryAcquire时抛出了异常，此时也就意味着前面没有等待状态的节点了，如果后面有等待的节点，那么自己之前的状态一定是signal，所以自己需要负责唤醒后面的节点（同时也可以理解为：如果自己不断重试成功执行tryAcquire后最终会执行release，也就是说自己总是需要去执行一次唤醒操作的（如果后面的节点有需要的话））。而如果node是超时后自动醒来返回false的情况，</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">cancelAcquire</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// Ignore if node doesn&#39;t exist</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (node </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">thread</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// Skip cancelled predecessors，对prev关系进行压缩，查找node压缩后的prev(pred)</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 不用担心pred为null，node一定不是head（异常只能是tryAcquireXXX抛出的，而此时setHead还未执行），并且head的waitStatus一定不是&gt;0，所有pred不为null</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> pred </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">prev</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">while</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">prev</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> pred </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">prev</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// predNext is the apparent node to unsplice. CASes below will</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// fail if not, in which case, we lost race vs another cancel</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// or signal, so no further action is necessary.</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> predNext </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// Can use unconditional write instead of CAS here.</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// After this atomic step, other Nodes can skip past us.</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// Before, we are free of interference from other threads.</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">//（在此之前我们不会被其它线程的压缩操作跳过，所以我们在前面可以安全的压缩）</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">CANCELLED</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 对next关系进行压缩</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// If we are the tail, remove ourselves.</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 设置失败说明别的线程入队了</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (node </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> tail </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">compareAndSetTail</span><span style="color: #E06C75">(node</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> pred)) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 不用在意是否修改成功，如果修改失败，那说明有别的node接到tail后了，是正常现象</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 这里的cas只是为了防止把这个接到tail后的node又给断开了</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">compareAndSetNext</span><span style="color: #E06C75">(pred</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> predNext</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// If successor needs signal, try to set pred&#39;s next-link</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// so it will get one. Otherwise wake it up to propagate.</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 如果自己前面还有非取消的节点，那么把它设置成signal让他到时候去唤醒后继，并且把自己移除；否则自己唤醒</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 为什么要去唤醒后继：见方法说明</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> ws</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// pred如果是head，那么前面一定没节点了所以自己唤醒</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 前面已经是signal（独占模式下不可能出现这样的情况）或者自己设置前面是signal，所以不用自己唤醒</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 如果pred.thread是空那么前面不存在实际线程也需要自己唤醒</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (pred </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> head </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">            ((ws </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75">) </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">SIGNAL</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span></span>
+<span class="line"><span style="color: #E06C75">             (ws </span><span style="color: #56B6C2">&lt;=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">compareAndSetWaitStatus</span><span style="color: #E06C75">(pred</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> ws</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">SIGNAL</span><span style="color: #E06C75">))) </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #E5C07B">pred</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">thread</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> next </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (next </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">next</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&lt;=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 这里只设置了next（node.pred.next = node.next），没有设置prev（node.next.pred = node.pred，这是因为防止node.next已经是head，这会导致修改head的prev）。由于node的状态已经设置成了cancel，所以实际这个prev关系将在shouldParkAfterFailedAcquire或者这个节点的后面某个节点执行的cancelAquire中进行处理（一种延迟处理的机制）</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 如果失败，说明node.next在shouldpark中修改了next，将node完全移除了</span></span>
+<span class="line"><span style="color: #E06C75">             </span><span style="color: #61AFEF">compareAndSetNext</span><span style="color: #E06C75">(pred</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> predNext</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> next)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #61AFEF">unparkSuccessor</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// help GC</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<h3 id="共享式流程"><a href="#共享式流程" class="headerlink" title="共享式流程"></a>共享式流程</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// 和独占类似</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">doAcquireShared</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> arg) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">addWaiter</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">SHARED</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> failed </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">try</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> interrupted </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> ) {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> p </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">predecessor</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (p </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> head) {</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> r </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">tryAcquireShared</span><span style="color: #E06C75">(arg)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (r </span><span style="color: #56B6C2">&gt;=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #61AFEF">setHeadAndPropagate</span><span style="color: #E06C75">(node</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> r)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #E5C07B">p</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// help GC</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (interrupted)</span></span>
+<span class="line"><span style="color: #E06C75">                        </span><span style="color: #61AFEF">selfInterrupt</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                    failed </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #C678DD">return</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                }</span></span>
+<span class="line"><span style="color: #E06C75">            }</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 注意也会被设置成signal</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">shouldParkAfterFailedAcquire</span><span style="color: #E06C75">(p</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> node) </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #61AFEF">parkAndCheckInterrupt</span><span style="color: #E06C75">())</span></span>
+<span class="line"><span style="color: #E06C75">                interrupted </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">finally</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (failed)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #61AFEF">cancelAcquire</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">setHeadAndPropagate</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> propagate) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> h </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> head</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// Record old head for check below</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #61AFEF">setHead</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">/*</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * Try to signal next queued node if:</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *   Propagation was indicated by caller,</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *     or was recorded (as h.waitStatus either before</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *     or after setHead) by a previous operation</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *     (note: this uses sign-check of waitStatus because</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *      PROPAGATE status may transition to SIGNAL.)</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * and</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *   The next node is waiting in shared mode,</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *     or we don&#39;t know, because it appears null</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     *</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * The conservatism in both of these checks may cause</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * unnecessary wake-ups, but only when there are multiple</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * racing acquires/releases, so most need signals now or soon</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * anyway.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     */</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 不清楚h == null是什么？？（估计是为了防止h.waitStatus抛出异常，同时尽量让if条件宽松）</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (propagate </span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> h </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">h</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span></span>
+<span class="line"><span style="color: #E06C75">            (h </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> head) </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">h</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&lt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> s </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// s == null是为了考虑到addWaiter刚刚加入的节点，节点还没连接到pred的next。如果后继是共享节点那么叫醒它</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (s </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">s</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">isShared</span><span style="color: #ABB2BF">()</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #61AFEF">doReleaseShared</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">/*** 释放共享锁 ***/</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">releaseShared</span><span style="color: #E06C75">(</span><span style="color: #C678DD">int</span><span style="color: #E06C75"> arg) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">tryReleaseShared</span><span style="color: #E06C75">(arg)) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">doReleaseShared</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">/* </span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">如果是setHeadAndPropagate进入的，那有三种情况（其实releaseShared进入的也一样这三种情况）：</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">（1），head状态为0（propagate &gt; 0 || h == null或者s == null）：此时将head设置为PROPAGATE，能够让这个head能在setHeadAndPropagate里进入doReleaseShared从而更加快速地唤醒需要唤醒的后续节点</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">（2），head状态为signal：直接唤醒</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">（3），head状态为propagate：如果在执行时状态被线程改成signal，那么能够直接唤醒。如果没有，那此时大概率head后没有等待的节点，那么也代表着不需要进行propagate，并不会产生什么问题。小概率情况下head在判断完if后被后续节点A设置成signal，然后节点A park前的tryAcauireShared操作，也由于另外一个新线程先一步执行了tryAcauireShared抢走了资源导致失败，从而让节点A park了（Non Fair的抢夺），那此时只能等待有线程执行release才能让A唤醒。</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">*/</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">doReleaseShared</span><span style="color: #E06C75">() {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">/*</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * Ensure that a release propagates, even if there are other</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * in-progress acquires/releases.  This proceeds in the usual</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * way of trying to unparkSuccessor of head if it needs</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * signal. But if it does not, status is set to PROPAGATE to</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * ensure that upon release, propagation continues.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * Additionally, we must loop in case a new node is added</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * while we are doing this. Also, unlike other uses of</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * unparkSuccessor, we need to know if CAS to reset status</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     * fails, if so rechecking.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">     */</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">for</span><span style="color: #E06C75"> (</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> ) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> h </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> head</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (h </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> h </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> tail) {</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> ws </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">h</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// 说明后继节点需要unpark，unpark成功后即任务完成</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (ws </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">SIGNAL</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">compareAndSetWaitStatus</span><span style="color: #E06C75">(h</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">SIGNAL</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">))</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #C678DD">continue</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75">            </span><span style="color: #7F848E; font-style: italic">// loop to recheck cases</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #61AFEF">unparkSuccessor</span><span style="color: #E06C75">(h)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// 若head状态为0，说明head调用了setHeadAndPropagate（或许这个方法还没结束，只执行了setHead），并且后面没有park的线程</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// 1，假设这个方法还没结束，正要执行if：</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// 此时将head设置为PROPAGATE，能够让这个head能在setHeadAndPropagate里进入doReleaseShared从而更加快速地唤醒需要唤醒的后续节点</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">//（即head在已进入doReleaseShared中时，这个节点把head改成signal，之后进行park，再之后head再判断是signal，从而能直接快速地唤醒这个节点，达到快速propagate的效果不会浪费临界资源）</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// 2，假设这个方法结束了且未进行propagate，那此时大概率head后没有等待的节点，那么也代表着不需要进行propagate，并不会产生什么问题。</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// 小概率情况下head在判断完if后被后续节点A设置成signal，然后节点A park前的tryAcauireShared操作，由于另外一个新线程提前执行了tryAcauireShared抢走了资源导致失败从而让节点A park了（Non Fair的抢夺），那此时只能等待有线程执行release才能让A唤醒。</span></span>
+<span class="line"><span style="color: #E06C75">            } </span><span style="color: #C678DD">else</span><span style="color: #E06C75"> </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (ws </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">                    </span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">compareAndSetWaitStatus</span><span style="color: #E06C75">(h</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">PROPAGATE</span><span style="color: #E06C75">))</span></span>
+<span class="line"><span style="color: #E06C75">                </span><span style="color: #C678DD">continue</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75">                </span><span style="color: #7F848E; font-style: italic">// loop on failed CAS</span></span>
+<span class="line"><span style="color: #E06C75">        }</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 确保整个流程head都没变，都没变才算执行成功</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (h </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> head)                   </span><span style="color: #7F848E; font-style: italic">// loop if head changed</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">break</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<h3 id="其它方法"><a href="#其它方法" class="headerlink" title="其它方法"></a>其它方法</h3><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">hasQueuedPredecessors</span><span style="color: #E06C75">() {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// The correctness of this depends on head being initialized</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// before tail and on head.next being accurate if the current</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// thread is first in queue.</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> t </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> tail</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// Read fields in reverse initialization order</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> h </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> head</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> s</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 首尾不同并且头节点之后不是自己(null或其它线程的节点)：有前辈</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 首尾相同或者头节点之后是自己：没有前辈</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 说明还没轮到自己或者自己根本就没在排队</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> h </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> t </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">        ((s </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">h</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">next</span><span style="color: #E06C75">) </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">s</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">thread</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">currentThread</span><span style="color: #ABB2BF">()</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+<h3 id="ConditionObject"><a href="#ConditionObject" class="headerlink" title="ConditionObject"></a>ConditionObject</h3><h4 id="属性"><a href="#属性" class="headerlink" title="属性"></a>属性</h4><figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">// 注意不需要 volatile</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 等待队列中没有伪头节点，全部都是等待节点</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">/** First node of condition queue. */</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">transient</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> firstWaiter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">/** Last node of condition queue. */</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">transient</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> lastWaiter</span><span style="color: #ABB2BF">;</span></span></code></pre></div></div></figure>
+
+
+
+<p>Condition 是为独占模式提供的一个等待-唤醒机制。</p>
+<h4 id="await"><a href="#await" class="headerlink" title="await"></a>await</h4><p>并不要去资源是独占的</p>
+<figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #7F848E; font-style: italic">/**</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">这个方法必定是独占模式下所以很多地方不需要考虑同步问题</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> * Implements interruptible condition wait.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> * 1. If current thread is interrupted, throw InterruptedException.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> * 2. Save lock state returned by {@link #getState}.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> * 3. Invoke {@link #release} with saved state as argument,</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> *      throwing IllegalMonitorStateException if it fails.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> * 4. Block until signalled or interrupted.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> * 5. Reacquire by invoking specialized version of</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> *      {@link #acquire} with saved state as argument.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> * 6. If interrupted while blocked in step 4, throw InterruptedException.</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> * </span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic"> */</span></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">await</span><span style="color: #E06C75">() throws InterruptedException {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">interrupted</span><span style="color: #ABB2BF">()</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">InterruptedException</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">addConditionWaiter</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 释放当前线程持有的所有资源，由于是独占的，也相当于释放当前同步器的所有资源（即release(getState())）</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 如果释放失败，那么让刚才添加的节点状态改成0，代表取消 CONDITION 状态，同时抛出异常</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// savedState: 所释放的资源数</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> savedState </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">fullyRelease</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> interruptMode </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 等待这个节点移动到同步队列中，也就是等待其它线程对这个conditionObject执行signal由这个执行signal的线程enq，或者被中断后由自己enq</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">while</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">isOnSyncQueue</span><span style="color: #E06C75">(node)) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">LockSupport</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">park</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">this</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 被唤醒了，如果是被中断的那么保证自己enq</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> ((interruptMode </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">checkInterruptWhileWaiting</span><span style="color: #E06C75">(node)) </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">            </span><span style="color: #C678DD">break</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 节点已经移动到同步队列中了，开始参与资源获取。（可能获取成功；也可能抛出异常而取消获取，同时停止整个await）</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 如果是抛出异常而取消获取，await又向上抛出异常，此时是没问题的，因为自己持有的资源之前已经全部释放了</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 现在考虑正常情况，这里获取成功了</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 如果参与资源获取过程中被中断了，且之前等待时不是THROW_IE，那就设置成REINTERRUPT</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">acquireQueued</span><span style="color: #E06C75">(node</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> savedState) </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> interruptMode </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> THROW_IE)</span></span>
+<span class="line"><span style="color: #E06C75">        interruptMode </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> REINTERRUPT</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 单纯地进行一次清理</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">nextWaiter</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">) </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">unlinkCancelledWaiters</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 根据interruptMode进行异常抛出或设置中断标志，</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// THROW_IE: throw new InterruptedException()</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// REINTERRUPT: selfInterrupt()</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (interruptMode </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">reportInterruptAfterWait</span><span style="color: #E06C75">(interruptMode)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 检查在等待过程中线程是否被中断，如果未被中断说明是通过signal里的unpark醒来的，返回0；否则：</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// transferAfterCancelledWait返回true代表是意外醒来，所以需要THROW_IE，否则虽然是被中断而醒来但由于并没有破坏await-signal流程，所以只需要设置interrupt标志</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 当然如果不是被中断而醒来的，就不必执行transferAfterCancelledWait了，</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">checkInterruptWhileWaiting</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">interrupted</span><span style="color: #ABB2BF">()</span><span style="color: #E06C75"> </span><span style="color: #C678DD">?</span></span>
+<span class="line"><span style="color: #E06C75">        (</span><span style="color: #61AFEF">transferAfterCancelledWait</span><span style="color: #E06C75">(node) </span><span style="color: #C678DD">?</span><span style="color: #E06C75"> THROW_IE </span><span style="color: #C678DD">:</span><span style="color: #E06C75"> REINTERRUPT) </span><span style="color: #C678DD">:</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #D19A66">0</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 方法需要保证返回时node已经enq成功，即保证能跳出while (!isOnSyncQueue(node))，进行await()的后续操作</span></span>
+<span class="line"><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">transferAfterCancelledWait</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 尝试从CONDITION转为0，同时移入同步队列。</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 如果成功意味着自己并不是signal唤醒的，在被signal之前就意外醒了</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #61AFEF">compareAndSetWaitStatus</span><span style="color: #E06C75">(node</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">CONDITION</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">)) { </span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 移入同步队列</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">enq</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">	</span><span style="color: #7F848E; font-style: italic">// 自己的状态不是CONDITION，这意味着之前已经被signal唤醒过了，同时已经进入transferForSignal的enq部分（这个enq的代码是由调用signal的线程执行的），所以此时需要等待enq完成才能退出</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">while</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">isOnSyncQueue</span><span style="color: #E06C75">(node))</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">yield</span><span style="color: #ABB2BF">();</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 把当前线程添加到等待队列末尾</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">addConditionWaiter</span><span style="color: #E06C75">() {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> t </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> lastWaiter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// If lastWaiter is cancelled, clean out.</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (t </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">&amp;&amp;</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">t</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">CONDITION</span><span style="color: #E06C75">) {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 清除已经取消 CONDITION 状态的节点，获得最新的lastWaiter</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">unlinkCancelledWaiters</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span><span style="color: #E06C75"> </span><span style="color: #7F848E; font-style: italic">// 无需同步，所以此方法就不分析了</span></span>
+<span class="line"><span style="color: #E06C75">        t </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> lastWaiter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    }</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 连接到新lastWaiter的后面</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">Node</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Thread</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">currentThread</span><span style="color: #ABB2BF">(),</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">CONDITION</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (t </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        firstWaiter </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">else</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">t</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">nextWaiter</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// lastWaiter修改成此node</span></span>
+<span class="line"><span style="color: #E06C75">    lastWaiter </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> node</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+
+
+<h4 id="signal"><a href="#signal" class="headerlink" title="signal"></a>signal</h4><p>只有当前线程是获取的是独占资源时才可signal</p>
+<figure class="shiki java"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">signal</span><span style="color: #E06C75">() {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">isHeldExclusively</span><span style="color: #E06C75">())</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">IllegalMonitorStateException</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> first </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> firstWaiter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (first </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">doSignal</span><span style="color: #E06C75">(first)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"><span style="color: #C678DD">public</span><span style="color: #E06C75"> </span><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">signalAll</span><span style="color: #E06C75">() {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">isHeldExclusively</span><span style="color: #E06C75">())</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">throw</span><span style="color: #E06C75"> </span><span style="color: #C678DD">new</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">IllegalMonitorStateException</span><span style="color: #E06C75">()</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> first </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> firstWaiter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (first </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">doSignalAll</span><span style="color: #E06C75">(first)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 简单粗暴</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">doSignalAll</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> first) {</span></span>
+<span class="line"><span style="color: #E06C75">    lastWaiter </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> firstWaiter </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">do</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> next </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">first</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">nextWaiter</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">first</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">nextWaiter</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #61AFEF">transferForSignal</span><span style="color: #E06C75">(first)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        first </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> next</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">while</span><span style="color: #E06C75"> (first </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 唤醒第一个节点</span></span>
+<span class="line"><span style="color: #C678DD">private</span><span style="color: #E06C75"> </span><span style="color: #C678DD">void</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">doSignal</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> first) {</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">do</span><span style="color: #E06C75"> {</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 从等待队列中完全移除当前节点</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> ( (firstWaiter </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">first</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">nextWaiter</span><span style="color: #E06C75">) </span><span style="color: #56B6C2">==</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span></span>
+<span class="line"><span style="color: #E06C75">            lastWaiter </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">first</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">nextWaiter</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #7F848E; font-style: italic">// 成功移入同步队列 或者 等待队列已经为空时退出循环</span></span>
+<span class="line"><span style="color: #E06C75">    } </span><span style="color: #C678DD">while</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">transferForSignal</span><span style="color: #E06C75">(first) </span><span style="color: #56B6C2">&amp;&amp;</span></span>
+<span class="line"><span style="color: #E06C75">             (first </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> firstWaiter) </span><span style="color: #56B6C2">!=</span><span style="color: #E06C75"> </span><span style="color: #D19A66">null</span><span style="color: #E06C75">)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">// 将节点移动到同步队列</span></span>
+<span class="line"><span style="color: #C678DD">final</span><span style="color: #E06C75"> </span><span style="color: #C678DD">boolean</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">transferForSignal</span><span style="color: #E06C75">(</span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> node) {</span></span>
+<span class="line"><span style="color: #E06C75">	</span><span style="color: #7F848E; font-style: italic">// 如果失败，那说明节点已经取消CONDITION了，可能在transferAfterCancelledWait中移入了或将要移入同步队列，也可能是release中抛出了异常而取消的</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (</span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">compareAndSetWaitStatus</span><span style="color: #E06C75">(node</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">CONDITION</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75">))</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">false</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">/*</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * Splice onto queue and try to set waitStatus of predecessor to</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * indicate that thread is (probably) waiting. If cancelled or</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * attempt to set waitStatus fails, wake up to resync (in which</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         * case the waitStatus can be transiently and harmlessly wrong).</span></span>
+<span class="line"><span style="color: #7F848E; font-style: italic">         */</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 节点移入同步队列，p是node.prev</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #E5C07B">Node</span><span style="color: #E06C75"> p </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #61AFEF">enq</span><span style="color: #E06C75">(node)</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">int</span><span style="color: #E06C75"> ws </span><span style="color: #56B6C2">=</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">p</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">waitStatus</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">    </span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 前面节点取消了或者前面节点设置成SIGNAL失败，意味着被signal的node可以直接醒来尝试参与await中调用的acquireQueued了</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #7F848E; font-style: italic">// 否则（前面节点A当前已经被设置成SIGNAL）不进行unpark，由同步队列中前面的节点释放资源时进行唤醒(unparkSuccessor)</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">if</span><span style="color: #E06C75"> (ws </span><span style="color: #56B6C2">&gt;</span><span style="color: #E06C75"> </span><span style="color: #D19A66">0</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">||</span><span style="color: #E06C75"> </span><span style="color: #56B6C2">!</span><span style="color: #61AFEF">compareAndSetWaitStatus</span><span style="color: #E06C75">(p</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> ws</span><span style="color: #ABB2BF">,</span><span style="color: #E06C75"> </span><span style="color: #E5C07B">Node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">SIGNAL</span><span style="color: #E06C75">))</span></span>
+<span class="line"><span style="color: #E06C75">        </span><span style="color: #E5C07B">LockSupport</span><span style="color: #ABB2BF">.</span><span style="color: #61AFEF">unpark</span><span style="color: #ABB2BF">(</span><span style="color: #E5C07B">node</span><span style="color: #ABB2BF">.</span><span style="color: #E5C07B">thread</span><span style="color: #ABB2BF">);</span></span>
+<span class="line"><span style="color: #E06C75">    </span><span style="color: #C678DD">return</span><span style="color: #E06C75"> </span><span style="color: #D19A66">true</span><span style="color: #ABB2BF">;</span></span>
+<span class="line"><span style="color: #E06C75">}</span></span></code></pre></div></div></figure>
+
+
+
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a target="_blank" rel="noopener" href="https://www.zhihu.com/question/295925198/answer/1622051796">https://www.zhihu.com/question/295925198/answer/1622051796</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/micrari/p/6937995.html">https://www.cnblogs.com/micrari/p/6937995.html</a></p>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/wojiaolinaaa/article/details/50070031">https://blog.csdn.net/wojiaolinaaa/article/details/50070031</a></p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Java">Java</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%B9%B6%E5%8F%91">并发</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=AQS">AQS</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>

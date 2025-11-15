@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="robots" content="noindex">
+  
+  <title>SecureRandom - Iails&#39;s posts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  
+  <meta name="keywords" content=Java,安全>
+  
+    <meta name="description" content="The Personal blog of Iails, a programer.">
+  
+  
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=1.02">
+  
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.css">
+<style>:root{--hl-color:#abb2bf;--hl-bg:#282c34;--hltools-bg:#21252b;--hltools-color:#bbbbbc;--hlnumber-bg:#282c34;--hlnumber-color:#495162;--hlscrollbar-bg:#373c47;--hlexpand-bg:linear-gradient(180deg,rgba(40,44,52,0.1),rgba(40,44,52,0.9))}</style>
+    <style>
+    .code-expand-btn:not(.expand-done) ~ div.codeblock,
+    .code-expand-btn:not(.expand-done) ~ * div.codeblock {
+      overflow: hidden;
+      height: 360px;
+    }
+    </style>
+  <!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.2.0"></head>
+
+  <body>
+    <div class="container">
+      <header class="header">
+  <div class="blog-title">
+    <a href="/" class="logo">♪</a>
+    <div class="subtitle"></div>
+  </div>
+  <nav class="navbar">
+    <ul class="menu">
+      
+        <li class="menu-item">
+          <a href="/" class="menu-item-link">Home</a>
+        </li>
+      
+        <li class="menu-item">
+          <a href="/tags/" class="menu-item-link">Tags</a>
+        </li>
+      
+    </ul>
+  </nav>
+</header>
+
+<article class="post">
+  <div class="post-title">
+    <h1 class="article-title">SecureRandom</h1>
+  </div>
+   <div class="post-meta" style="color:#000000;font-size:16px;">
+    <span class="post-time">2024-05-29</span> <br>
+  </div>
+  <div class="post-content">
+    <p><a target="_blank" rel="noopener" href="https://www.1ju.org/article/java-security-egd">https://www.1ju.org/article/java-security-egd</a></p>
+<p><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/58991966/what-java-security-egd-option-is-for">https://stackoverflow.com/questions/58991966/what-java-security-egd-option-is-for</a></p>
+<h3 id="SecureRandom"><a href="#SecureRandom" class="headerlink" title="SecureRandom"></a>SecureRandom</h3><p>会使用<code>java.security</code>配置文件中配置的<code>securerandom.source</code>作为 entropy gathering device(EGD)，即熵池的来源，通过这个熵池获取初始化用到的seed，只在第一次的时候使用到这个熵池。</p>
+<p>还可以通过指定<code>-Djava.security.egd</code>系统属性来覆盖这个配置。</p>
+<p>这个配置可以取值为：</p>
+<figure class="shiki"><div class='codeblock'><div class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></div><div class="code"><pre class="shiki one-dark-pro"><code><span class="line"><span style="color: #abb2bf">file:/dev/random</span></span>
+<span class="line"><span style="color: #abb2bf">file:/dev/urandom</span></span>
+<span class="line"><span style="color: #abb2bf">file:/dev/./urandom</span></span></code></pre></div></div></figure>
+
+<p><code>/dev/random</code>在产生大量随机数的时候比<code>/dev/urandom</code>慢？（为什么）</p>
+<p>什么情况下应该用什么配置：</p>
+<blockquote>
+<p>file:&#x2F;dev&#x2F;.&#x2F;urandom 是因为一个jdk的bug，如果使用file:&#x2F;dev&#x2F;urandom仍然会使用file&#x2F;dev&#x2F;random</p>
+<p>Java Bug 6202721 states that java.security.SecureRandom uses &#x2F;dev&#x2F;random rather than &#x2F;dev&#x2F;urandom even if &#x2F;dev&#x2F;urandom is specified because at the time (around 2004) &#x2F;dev&#x2F;urandom was not working properly. The bug has never been reversed now that &#x2F;dev&#x2F;urandom works quite well. Therefore, you have to fake it out by obscuring the setting by using &#x2F;dev&#x2F;.&#x2F;urandom to force the use of SHA1PRNG rather than &#x2F;dev&#x2F;random.</p>
+</blockquote>
+<p>If running Java 8 on modern OSes with support to Deterministic Random Bit Generator (DRBG), I’d recommend using<br><code>-Djava.security.egd=file:/dev/urandom</code> to avoid getting the code blocked unexpectedly. If not sure about the OS being used, my suggestion is to stick with the original recommendation, namely:<br><code>-Djava.security.egd=file:/dev/./urandom</code></p>
+<p>If running Java 11, I’d recommend simply using<br><code>-Djava.security.egd=file:/dev/./urandom</code> to make sure of:</p>
+<p>leveraging the strongest SecureRandom implementation available (DRBG) regardless the underpinning platform<br>avoiding getting the code blocked unexpectedly (securerandom.source&#x3D;file:&#x2F;dev&#x2F;urandom)</p>
+<h3 id="UUID"><a href="#UUID" class="headerlink" title="UUID"></a>UUID</h3><p>UUID这个类使用的就是SecureRandom来生成随机数。所以这个配置能影响第一次获取UUID时的速度。</p>
+
+  </div>
+  <div class="post-footer">
+    
+      <ul class="post-tag-list">
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=Java">Java</a>
+          </li>
+        
+          <li class="post-tag-list-item">
+            <a class="post-tag" href="/tags/?selected=%E5%AE%89%E5%85%A8">安全</a>
+          </li>
+        
+      </ul>
+    
+
+    <a href="#top" class="top">Back to Top</a>
+  </div>
+  
+</article>
+<footer>
+  &copy; 2025
+  <span class="author">
+    Iails
+  </span>
+
+  <span class="right">
+    <!-- ICP license placeholder -->
+    <a target="_blank" rel="noopener" href="https://github.com/iails01">Github</a>
+  </span>
+</footer>
+
+
+    </div>
+  <!-- hexo injector body_end start -->
+<script src="https://cdn.jsdelivr.net/npm/hexo-shiki-plugin@latest/lib/codeblock.js"></script>
+
+  <script>
+  const CODE_CONFIG = {
+    beautify: true,
+    highlightCopy: true,
+    highlightLang: true,
+    highlightHeightLimit: 360,
+    isHighlightShrink: false,
+    copy: {
+      success: 'Copy Success',
+      error: 'Copy Error',
+      noSupport: 'Browser Not Support',
+    }
+  };
+  console.log(
+    `%c hexo-shiki-plugin %c v1.0.26 %c https://github.com/nova1751/hexo-shiki-plugin`,
+    "color: #fff; background: #5f5f5f",
+    "color: #fff; background: #80c8f8",
+    ""
+  );
+  </script>
+  <!-- hexo injector body_end end --></body>
+</html>
